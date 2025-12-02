@@ -5,7 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "linkedout-pipelines",
-	"main": "src/index.ts",
+	"main": "src/index.tsx",
 	"compatibility_date": "2025-12-02",
 	"assets": {
 		"binding": "ASSETS",
