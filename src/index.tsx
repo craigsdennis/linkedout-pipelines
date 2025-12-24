@@ -34,12 +34,12 @@ app.get("/out/:slug", async (c) => {
   - [Thirdly](https://third.ly)
   `;
   const html = await marked(value);
-  // TODO: Mark links
   return c.render(<article dangerouslySetInnerHTML={{ __html: html }} />);
 });
 
 app.post("/api/track", async(c) => {
   const payload = await c.req.json();
+  // TODO verify
   console.log({payload});
   return c.body(null, 204);
 });

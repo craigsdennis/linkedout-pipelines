@@ -1,12 +1,15 @@
 (function () {
   const TRACK_ENDPOINT = "/api/track";
 
-  function sendBeacon() {
+  function sendBeacon(clickedAnchor) {
     if (!("sendBeacon" in navigator)) {
       return;
     }
 
-    const payload = JSON.stringify({ url: window.location.href });
+    const payload = JSON.stringify({
+      url: window.location.href,
+      out: clickedAnchor?.href ?? null,
+    });
     const blob = new Blob([payload], { type: "application/json" });
     navigator.sendBeacon(TRACK_ENDPOINT, blob);
   }
@@ -19,7 +22,7 @@
       return;
     }
 
-    sendBeacon();
+    sendBeacon(anchor);
   }
 
   function enableLinkTracking() {
