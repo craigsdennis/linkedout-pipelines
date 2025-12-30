@@ -361,7 +361,16 @@ app.get("/admin", authMiddleware, async (c) => {
   const user = await getUser(email);
 
   if (!user?.is_admin) {
-    return c.html("<h1>403 - Access Denied</h1><p>Admin access required.</p>", 403);
+    return c.html(
+      BaseLayout({
+        title: "Access Denied",
+        children: html`
+          <h1>403 - Access Denied</h1>
+          <p>Admin access required.</p>
+          <a href="/dashboard">Back to Dashboard</a>
+        `
+      }), 403
+    );
   }
 
   // Get all users
@@ -374,99 +383,16 @@ app.get("/admin", authMiddleware, async (c) => {
     }
   }
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Admin Panel - LinkedOut</title>
-        <style>
-          body {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-          }
-          .card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          th, td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-          }
-          th {
-            background: #f5f5f5;
-            font-weight: 600;
-          }
-          .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            background: #e3f2fd;
-            color: #1976d2;
-          }
-          .badge.admin {
-            background: #fce4ec;
-            color: #c2185b;
-          }
-          form {
-            display: flex;
-            gap: 10px;
-          }
-          input[type="email"] {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-          }
-          button {
-            padding: 10px 20px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-          }
-          button:hover {
-            background: #0052a3;
-          }
-          .nav a {
-            color: #0066cc;
-            text-decoration: none;
-            margin-left: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Admin Panel</h1>
-          <div class="nav">
-            <a href="/dashboard">Dashboard</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </div>
-
+  return c.html(
+    DashboardLayout({
+      title: "Admin Panel",
+      email: email,
+      isAdmin: true,
+      children: html`
         <div class="card">
           <h2>Add New User</h2>
-          <form method="POST" action="/admin/add-user">
-            <input type="email" name="email" placeholder="user@example.com" required />
+          <form method="POST" action="/admin/add-user" style="display: flex; gap: 10px;">
+            <input type="email" name="email" placeholder="user@example.com" required style="flex: 1;" />
             <label>
               <input type="checkbox" name="is_admin" value="true" />
               Admin
@@ -476,7 +402,7 @@ app.get("/admin", authMiddleware, async (c) => {
         </div>
 
         <div class="card">
-          <h2>Authorized Users</h2>
+          <h2>All Users</h2>
           <table>
             <thead>
               <tr>
@@ -487,27 +413,30 @@ app.get("/admin", authMiddleware, async (c) => {
               </tr>
             </thead>
             <tbody>
-              ${users.map(u => `
+              ${users.map(u => html`
                 <tr>
                   <td>${u.email}</td>
                   <td>
-                    ${u.is_admin ? '<span class="badge admin">Admin</span>' : '<span class="badge">User</span>'}
+                    ${u.is_admin 
+                      ? html`<span style="background: #fce4ec; color: #c2185b; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Admin</span>` 
+                      : html`<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">User</span>`
+                    }
                   </td>
                   <td>${new Date(u.created_at).toLocaleDateString()}</td>
                   <td>
                     <form method="POST" action="/admin/delete-user" style="display: inline;">
                       <input type="hidden" name="email" value="${u.email}" />
-                      <button type="submit" onclick="return confirm('Remove user ${u.email}?')">Remove</button>
+                      <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 14px;">Delete</button>
                     </form>
                   </td>
                 </tr>
-              `).join('')}
+              `)}
             </tbody>
           </table>
         </div>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Add user (admin only)
