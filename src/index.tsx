@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { marked } from "marked";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { getCookie } from "hono/cookie";
+import { html } from "hono/html";
 import QRCode from "qrcode";
 import type { ClickEvent, Link } from "./types";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./utils/auth";
 import { getCfProperties, getVisitorId } from "./utils/helpers";
 import { authMiddleware } from "./middleware/auth";
+import { BaseLayout, DashboardLayout } from "./views/layouts";
 import tracking from "./routes/tracking";
 import auth from "./routes/auth";
 
@@ -262,52 +264,40 @@ app.get("/", async (c) => {
     email = await verifyToken(token);
   }
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>LinkedOut - Share Links, Track Clicks</title>
-        <style>
-          body {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-          }
-          .hero {
-            text-align: center;
-            padding: 60px 0;
-          }
-          .cta {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #0066cc;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 10px;
-          }
-          .cta:hover {
-            background: #0052a3;
-          }
-        </style>
-      </head>
-      <body>
+  return c.html(
+    BaseLayout({
+      title: "Share Links, Track Clicks",
+      styles: `
+        .hero {
+          text-align: center;
+          padding: 60px 0;
+        }
+        .cta {
+          display: inline-block;
+          padding: 12px 24px;
+          background: #0066cc;
+          color: white;
+          text-decoration: none;
+          border-radius: 6px;
+          margin: 10px;
+        }
+        .cta:hover {
+          background: #0052a3;
+          text-decoration: none;
+        }
+      `,
+      children: html`
         <div class="hero">
           <h1>LinkedOut</h1>
-          <p>Share links after talks and track engagement with Cloudflare's Data Stack</p>
-          ${
-            email
-              ? `<p>Logged in as: ${email}</p>
-                 <a href="/dashboard" class="cta">Go to Dashboard</a>
-                 <a href="/logout" class="cta">Logout</a>`
-              : `<a href="/login" class="cta">Login</a>`
+          <p>Share your links after talks and track every click with analytics</p>
+          ${email 
+            ? html`<a href="/dashboard" class="cta">Go to Dashboard</a>`
+            : html`<a href="/login" class="cta">Get Started</a>`
           }
         </div>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Dashboard (protected)
@@ -328,102 +318,41 @@ app.get("/dashboard", authMiddleware, async (c) => {
     }
   }
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Dashboard - LinkedOut</title>
-        <style>
-          body {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-          }
-          .nav a {
-            margin-left: 20px;
-            color: #0066cc;
-            text-decoration: none;
-          }
-          .card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-          }
-          .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background: #0066cc;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-          }
-          .btn:hover {
-            background: #0052a3;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Dashboard</h1>
-          <div class="nav">
-            <span>Logged in as: ${email}</span>
-            ${user?.is_admin ? '<a href="/admin">Admin</a>' : ''}
-            <a href="/logout">Logout</a>
-          </div>
-        </div>
-        
+  return c.html(
+    DashboardLayout({
+      title: "Dashboard",
+      email: email,
+      isAdmin: user?.is_admin,
+      children: html`
         <div class="card">
-          <h2>Your Links</h2>
-          ${userLinks.length === 0 ? `
-            <p>You haven't created any link pages yet.</p>
-            <a href="/links/create" class="btn">Create Your First Link</a>
-          ` : `
-            <table>
-              <thead>
-                <tr>
-                  <th>Slug</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${userLinks.map(link => `
-                  <tr>
-                    <td><a href="/out/${link.slug}" target="_blank">${link.slug}</a></td>
-                    <td>${new Date(link.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <a href="/links/view/${link.slug}" class="btn" style="padding: 5px 10px; font-size: 14px;">Manage</a>
-                      <a href="/analytics?slug=${link.slug}" class="btn" style="padding: 5px 10px; font-size: 14px;">Analytics</a>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            <div style="margin-top: 20px;">
-              <a href="/links/create" class="btn">Create New Link</a>
-            </div>
-          `}
+          <h2>Your Link Pages</h2>
+          <a href="/links/create" class="btn">Create New Link Page</a>
+          
+          ${userLinks.length === 0 
+            ? html`<p>No link pages yet. Create your first one!</p>`
+            : html`
+              <ul style="list-style: none; padding: 0;">
+                ${userLinks.map(link => html`
+                  <li style="padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <strong>${link.slug}</strong>
+                      <br />
+                      <small>Created: ${new Date(link.created_at).toLocaleDateString()}</small>
+                    </div>
+                    <div>
+                      <a href="/out/${link.slug}" target="_blank" style="margin-left: 10px;">View</a>
+                      <a href="/links/view/${link.slug}" style="margin-left: 10px;">Manage</a>
+                      <a href="/qr/${link.slug}" target="_blank" style="margin-left: 10px;">QR Code</a>
+                    </div>
+                  </li>
+                `)}
+              </ul>
+            `
+          }
         </div>
-
-        <div class="card">
-          <h2>Analytics</h2>
-          <p>View click tracking and engagement data across all your links.</p>
-          <a href="/analytics" class="btn">View All Analytics</a>
-        </div>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Admin panel (protected, admin only)
