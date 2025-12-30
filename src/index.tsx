@@ -126,7 +126,11 @@ app.get("/out/:slug", async (c) => {
   };
 
   // Write to pipeline (async, don't await)
-  c.env.CLICK_STREAM.send([pageViewEvent]).catch(console.error);
+  console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
+  c.env.CLICK_STREAM.send([pageViewEvent]).catch((err) => {
+    console.error("Failed to send page_view event:", err);
+    console.error("Event was:", JSON.stringify(pageViewEvent));
+  });
 
   return c.render(
     <>
@@ -1566,7 +1570,11 @@ app.get("/q/:slug", async (c) => {
   };
 
   // Write to pipeline (async, don't await)
-  c.env.CLICK_STREAM.send([qrScanEvent]).catch(console.error);
+  console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
+  c.env.CLICK_STREAM.send([qrScanEvent]).catch((err) => {
+    console.error("Failed to send qr_scan event:", err);
+    console.error("Event was:", JSON.stringify(qrScanEvent));
+  });
 
   // Redirect to the actual link page
   return c.redirect(`/out/${slug}`);
