@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { marked } from "marked";
-import { stripIndents } from "common-tags";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { getCookie, setCookie } from "hono/cookie";
 import QRCode from "qrcode";
@@ -12,49 +11,14 @@ import {
   isUserAuthorized,
   createUser,
 } from "./utils/auth";
+import { getCfProperties, getVisitorId } from "./utils/helpers";
+import { authMiddleware } from "./middleware/auth";
 
 type Variables = {
   userEmail: string;
 };
 
 const app = new Hono<{ Bindings: CloudflareBindings; Variables: Variables }>();
-
-// Helper to extract Cloudflare request metadata
-function getCfProperties(request: Request): Partial<ClickEvent> {
-  const cf = (request as any).cf;
-  if (!cf) return {};
-  
-  return {
-    country: cf.country || undefined,
-    city: cf.city || undefined,
-    region: cf.region || cf.regionCode || undefined,
-    colo: cf.colo || undefined,
-    latitude: cf.latitude || undefined,
-    longitude: cf.longitude || undefined,
-    timezone: cf.timezone || undefined,
-  };
-}
-
-// Helper to get visitor ID from cookie
-function getVisitorId(c: any): string | undefined {
-  return getCookie(c, "_lo_vid");
-}
-
-// Middleware to check authentication
-const authMiddleware = async (c: any, next: any) => {
-  const token = getCookie(c, "auth_token");
-  if (!token) {
-    return c.redirect("/login");
-  }
-
-  const email = await verifyToken(token);
-  if (!email) {
-    return c.redirect("/login");
-  }
-
-  c.set("userEmail", email);
-  await next();
-};
 
 // Public link viewing page with tracking
 app.get(
