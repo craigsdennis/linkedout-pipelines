@@ -1631,7 +1631,7 @@ app.get("/debug/pipeline", async (c) => {
 // Debug endpoint - test R2 SQL query directly
 app.get("/debug/r2sql", async (c) => {
   try {
-    const testQuery = `SELECT COUNT(*) FROM default.click_events_v3`;
+    const testQuery = `SELECT COUNT(*) FROM default.click_events_v4`;
     
     const response = await fetch(
       `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
@@ -1712,7 +1712,7 @@ app.get("/analytics", authMiddleware, async (c) => {
       SELECT 
         event_type,
         COUNT(*)
-      FROM default.click_events_v3
+      FROM default.click_events_v4
       ${whereClause}
       GROUP BY event_type
     `;
@@ -1777,7 +1777,7 @@ app.get("/analytics", authMiddleware, async (c) => {
         slug,
         out,
         user_agent
-      FROM default.click_events_v3
+      FROM default.click_events_v4
       ${whereClause}
       ORDER BY __ingest_ts DESC
       LIMIT 20
