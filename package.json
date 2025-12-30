@@ -4,15 +4,21 @@
 	"scripts": {
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify",
-		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"dependencies": {
 		"common-tags": "^1.8.2",
-		"hono": "^4.10.7",
-		"marked": "^17.0.1"
+		"hono": "^4.11.3",
+		"marked": "^17.0.1",
+		"qrcode": "^1.5.4"
 	},
 	"devDependencies": {
 		"@types/common-tags": "^1.8.4",
-		"wrangler": "^4.51.0"
+		"@types/qrcode": "^1.5.6",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.16",
+		"wrangler": "^4.54.0"
 	}
 }

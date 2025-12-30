@@ -1,0 +1,79 @@
+{
+  "fields": [
+    {
+      "name": "timestamp",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "slug",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "owner_email",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "url",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "out",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "user_agent",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "referer",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "country",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "city",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "region",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "colo",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "latitude",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "longitude",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "timezone",
+      "type": "string",
+      "required": false
+    }
+  ]
+}
