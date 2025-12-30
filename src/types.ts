@@ -5,6 +5,7 @@ export interface ClickEvent {
   out: string | null;
   slug: string;
   owner_email: string;
+  visitor_id?: string;
   user_agent?: string;
   referer?: string;
   event_type: 'click' | 'qr_scan' | 'page_view';

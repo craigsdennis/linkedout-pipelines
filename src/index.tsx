@@ -35,6 +35,11 @@ function getCfProperties(request: Request): Partial<ClickEvent> {
   };
 }
 
+// Helper to get visitor ID from cookie
+function getVisitorId(c: any): string | undefined {
+  return getCookie(c, "_lo_vid");
+}
+
 // Middleware to check authentication
 const authMiddleware = async (c: any, next: any) => {
   const token = getCookie(c, "auth_token");
@@ -119,6 +124,7 @@ app.get("/out/:slug", async (c) => {
     out: null,
     slug: link.slug,
     owner_email: link.owner_email,
+    visitor_id: getVisitorId(c),
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
     event_type: "page_view",
@@ -284,6 +290,7 @@ app.post("/api/track", async (c) => {
   const payload = await c.req.json<{
     url: string;
     out: string | null;
+    visitor_id?: string;
   }>();
 
   // Extract slug from URL
@@ -307,6 +314,7 @@ app.post("/api/track", async (c) => {
     out: payload.out,
     slug: link.slug,
     owner_email: link.owner_email,
+    visitor_id: payload.visitor_id,
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
     event_type: "click",
@@ -1566,6 +1574,7 @@ app.get("/q/:slug", async (c) => {
     out: null,
     slug: link.slug,
     owner_email: link.owner_email,
+    visitor_id: getVisitorId(c),
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
     event_type: "qr_scan",

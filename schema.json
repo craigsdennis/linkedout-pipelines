@@ -21,6 +21,11 @@
       "required": true
     },
     {
+      "name": "visitor_id",
+      "type": "string",
+      "required": false
+    },
+    {
       "name": "url",
       "type": "string",
       "required": false
