@@ -1,14 +1,12 @@
 import { Hono } from "hono";
 import { marked } from "marked";
 import { jsxRenderer } from "hono/jsx-renderer";
-import { getCookie, setCookie } from "hono/cookie";
+import { getCookie } from "hono/cookie";
 import QRCode from "qrcode";
 import type { ClickEvent, Link } from "./types";
 import {
   verifyToken,
   getUser,
-  createAuthToken,
-  isUserAuthorized,
   createUser,
 } from "./utils/auth";
 import { getCfProperties, getVisitorId } from "./utils/helpers";
