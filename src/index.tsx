@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { marked } from "marked";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { getCookie } from "hono/cookie";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import QRCode from "qrcode";
 import type { ClickEvent, Link } from "./types";
 import {
@@ -34,28 +34,11 @@ app.get(
       <html>
         <head>
           <title>LinkedOut</title>
+          <link rel="stylesheet" href="/styles.css" />
           <script src="/track.js" defer></script>
-          <style>
-            {`
-              body {
-                max-width: 800px;
-                margin: 40px auto;
-                padding: 0 20px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-                line-height: 1.6;
-                color: #333;
-              }
-              a {
-                color: #0066cc;
-                text-decoration: none;
-              }
-              a:hover {
-                text-decoration: underline;
-              }
-            `}
-          </style>
+          <script src="/qr.js" defer></script>
         </head>
-        <body>
+        <body class="base-layout">
           <div>{children}</div>
         </body>
       </html>
@@ -115,6 +98,7 @@ app.get("/out/:slug", async (c) => {
     <>
       <article dangerouslySetInnerHTML={{ __html: html }} />
       {link.custom_css && <style>{link.custom_css}</style>}
+      <script dangerouslySetInnerHTML={{ __html: `window.qrSlug = '${slug}';` }} />
       <div id="qr-modal" class="qr-modal" onclick="if(event.target === this) hideQR()">
         <button class="qr-modal-close" onclick="hideQR()">×</button>
         <div class="qr-modal-content">
@@ -124,133 +108,11 @@ app.get("/out/:slug", async (c) => {
             {c.req.url}
           </p>
           <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <button class="btn" onclick="downloadQR()">Download PNG</button>
+            <button class="btn" onclick="downloadQRCode()">Download PNG</button>
             <button class="btn btn-secondary" onclick="hideQR()">Close (Q or ESC)</button>
           </div>
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .qr-modal {
-          display: none;
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.8);
-          z-index: 1000;
-          justify-content: center;
-          align-items: center;
-        }
-        .qr-modal.show {
-          display: flex;
-        }
-        .qr-modal-content {
-          background: white;
-          padding: 40px;
-          border-radius: 8px;
-          text-align: center;
-          max-width: 500px;
-        }
-        #qr-code-container {
-          margin: 20px 0;
-          display: flex;
-          justify-content: center;
-        }
-        #qr-code-container svg {
-          max-width: 100%;
-          height: auto;
-        }
-        .qr-modal-close {
-          position: absolute;
-          top: 20px;
-          right: 20px;
-          background: white;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          line-height: 40px;
-        }
-        .btn {
-          padding: 10px 20px;
-          background: #0066cc;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-block;
-        }
-        .btn:hover {
-          background: #0052a3;
-        }
-        .btn-secondary {
-          background: #666;
-        }
-        .btn-secondary:hover {
-          background: #555;
-        }
-        @media print {
-          body > *:not(#qr-modal) {
-            display: none !important;
-          }
-          #qr-modal {
-            display: flex !important;
-            background: white !important;
-            position: static !important;
-          }
-          .qr-modal-close, .btn {
-            display: none !important;
-          }
-        }
-      ` }} />
-      <script dangerouslySetInnerHTML={{ __html: `
-        function showQR() {
-          document.getElementById('qr-modal').classList.add('show');
-        }
-        function hideQR() {
-          document.getElementById('qr-modal').classList.remove('show');
-        }
-        function downloadQR() {
-          const svg = document.querySelector('#qr-code-container svg');
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const img = new Image();
-          canvas.width = 400;
-          canvas.height = 400;
-          img.onload = function() {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, 400, 400);
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(function(blob) {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'qr-${slug}.png';
-              a.click();
-              URL.revokeObjectURL(url);
-            });
-          };
-          img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-        }
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'q' || e.key === 'Q') {
-            const modal = document.getElementById('qr-modal');
-            if (modal.classList.contains('show')) {
-              hideQR();
-            } else {
-              showQR();
-            }
-          }
-          if (e.key === 'Escape') {
-            hideQR();
-          }
-        });
-      ` }} />
     </>
   );
 });
@@ -493,75 +355,17 @@ app.post("/admin/delete-user", authMiddleware, async (c) => {
 
 // Create link page
 app.get("/links/create", authMiddleware, async (c) => {
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Create Link - LinkedOut</title>
-        <style>
-          body {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-          }
-          form {
-            background: #f5f5f5;
-            padding: 30px;
-            border-radius: 8px;
-          }
-          label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-          }
-          input, textarea {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: inherit;
-          }
-          textarea {
-            min-height: 300px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-          }
-          button {
-            padding: 12px 24px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-          }
-          button:hover {
-            background: #0052a3;
-          }
-          .help {
-            font-size: 14px;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Create New Link Page</h1>
-          <a href="/dashboard">Back to Dashboard</a>
-        </div>
+  const email = c.get("userEmail");
+  const user = await getUser(email);
 
-        <form method="POST" action="/links/create">
-          <label for="slug">URL Slug</label>
+  return c.html(
+    DashboardLayout({
+      title: "Create Link Page",
+      email: email,
+      isAdmin: user?.is_admin,
+      children: html`
+        <form method="POST" action="/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
+          <label for="slug" style="display: block; margin-bottom: 5px; font-weight: 500;">URL Slug</label>
           <input 
             type="text" 
             id="slug" 
@@ -570,13 +374,16 @@ app.get("/links/create", authMiddleware, async (c) => {
             pattern="[a-z0-9-]+"
             required 
           />
-          <p class="help">Only lowercase letters, numbers, and hyphens. Example: my-conference-talk</p>
+          <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
+            Only lowercase letters, numbers, and hyphens. Example: my-conference-talk
+          </p>
 
-          <label for="content">Content (Markdown)</label>
+          <label for="content" style="display: block; margin-bottom: 5px; font-weight: 500;">Content (Markdown)</label>
           <textarea 
             id="content" 
             name="content" 
             required
+            style="min-height: 300px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;"
             placeholder="# My Talk Title
 
 Here are the links from my talk:
@@ -585,13 +392,15 @@ Here are the links from my talk:
 - [Second Link](https://example.com/page)
 - [Third Link](https://example.com/another)"
           ></textarea>
-          <p class="help">Supports Markdown formatting. Add your links, headings, and text.</p>
+          <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
+            Supports Markdown formatting. Add your links, headings, and text.
+          </p>
 
           <button type="submit">Create Link Page</button>
         </form>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Create link handler
@@ -646,6 +455,7 @@ app.get("/links/view/:slug", authMiddleware, async (c) => {
     return c.html("Access denied", 403);
   }
 
+  const user = await getUser(email);
   const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
   const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
   
@@ -658,117 +468,17 @@ app.get("/links/view/:slug", authMiddleware, async (c) => {
       dark: '#000000',
       light: '#ffffff'
     }
-  });
+});
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Link: ${slug} - LinkedOut</title>
-        <style>
-          body {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-          }
-          .card {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-          }
-          .link-url {
-            font-size: 18px;
-            color: #0066cc;
-            word-break: break-all;
-            margin: 10px 0;
-          }
-          .actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-          }
-          .btn {
-            padding: 10px 20px;
-            background: #0066cc;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-          }
-          .btn:hover {
-            background: #0052a3;
-          }
-          .btn-secondary {
-            background: #666;
-          }
-          .btn-secondary:hover {
-            background: #555;
-          }
-          .qr-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-          }
-          .qr-modal.show {
-            display: flex;
-          }
-          .qr-modal-content {
-            background: white;
-            padding: 40px;
-            border-radius: 8px;
-            text-align: center;
-            max-width: 500px;
-          }
-          .qr-modal-content #qr-code-container {
-            margin: 20px 0;
-            display: flex;
-            justify-content: center;
-          }
-          .qr-modal-content #qr-code-container svg {
-            max-width: 100%;
-            height: auto;
-          }
-          .qr-modal-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            line-height: 40px;
-          }
-          .hotkey-hint {
-            font-size: 12px;
-            color: #666;
-            margin-left: 5px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Link Page: ${slug}</h1>
-          <a href="/dashboard">Back to Dashboard</a>
-        </div>
+  return c.html(
+    DashboardLayout({
+      title: `Link: ${slug}`,
+      email: email,
+      isAdmin: user?.is_admin,
+      scripts: ['/qr.js'],
+      children: html`
+        <script>window.qrSlug = '${slug}';</script>
+        <h2>Link Page: ${slug}</h2>
 
         <div class="card">
           <h3>Public URL</h3>
@@ -788,7 +498,7 @@ app.get("/links/view/:slug", authMiddleware, async (c) => {
           <div class="qr-modal-content">
             <h2>QR Code: ${slug}</h2>
             <div id="qr-code-container">
-              ${qrSvg}
+              ${raw(qrSvg)}
             </div>
             <p style="font-size: 14px; color: #666; word-break: break-all;">
               ${qrTrackUrl}
@@ -817,84 +527,9 @@ app.get("/links/view/:slug", authMiddleware, async (c) => {
             </form>
           </div>
         </div>
-
-        <script>
-          function showQR() {
-            document.getElementById('qr-modal').classList.add('show');
-          }
-
-          function hideQR() {
-            document.getElementById('qr-modal').classList.remove('show');
-          }
-
-          function downloadQR() {
-            // Convert SVG to PNG for download
-            const svg = document.querySelector('#qr-code-container svg');
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const svgData = new XMLSerializer().serializeToString(svg);
-            const img = new Image();
-            
-            canvas.width = 400;
-            canvas.height = 400;
-            
-            img.onload = function() {
-              ctx.fillStyle = 'white';
-              ctx.fillRect(0, 0, 400, 400);
-              ctx.drawImage(img, 0, 0);
-              
-              canvas.toBlob(function(blob) {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'qr-${slug}.png';
-                a.click();
-                URL.revokeObjectURL(url);
-              });
-            };
-            
-            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-          }
-
-          // Hotkey support
-          document.addEventListener('keydown', function(e) {
-            // Q key to toggle QR modal
-            if (e.key === 'q' || e.key === 'Q') {
-              const modal = document.getElementById('qr-modal');
-              if (modal.classList.contains('show')) {
-                hideQR();
-              } else {
-                showQR();
-              }
-            }
-            // ESC key to close modal
-            if (e.key === 'Escape') {
-              hideQR();
-            }
-          });
-
-          // Print media query for QR code
-          const style = document.createElement('style');
-          style.textContent = \`
-            @media print {
-              body > *:not(#qr-modal) {
-                display: none !important;
-              }
-              #qr-modal {
-                display: flex !important;
-                background: white !important;
-                position: static !important;
-              }
-              .qr-modal-close, .btn {
-                display: none !important;
-              }
-            }
-          \`;
-          document.head.appendChild(style);
-        </script>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Edit link
@@ -913,60 +548,56 @@ app.get("/links/edit/:slug", authMiddleware, async (c) => {
     return c.html("Access denied", 403);
   }
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Edit ${slug} - LinkedOut</title>
-        <style>
-          body {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          form {
-            background: #f5f5f5;
-            padding: 30px;
-            border-radius: 8px;
-          }
-          label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-          }
-          textarea {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            min-height: 300px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-          }
-          button {
-            padding: 12px 24px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Edit: ${slug}</h1>
+  const user = await getUser(email);
+
+  return c.html(
+    DashboardLayout({
+      title: `Edit: ${slug}`,
+      email: email,
+      isAdmin: user?.is_admin,
+      styles: `
+        form {
+          background: white;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          padding: 30px;
+        }
+        label {
+          display: block;
+          margin-bottom: 5px;
+          font-weight: 500;
+        }
+        textarea {
+          width: 100%;
+          padding: 10px;
+          margin-bottom: 20px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          box-sizing: border-box;
+          min-height: 300px;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        button {
+          padding: 12px 24px;
+          background: #0066cc;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 16px;
+        }
+      `,
+      children: html`
+        <h2>Edit: ${slug}</h2>
         <form method="POST" action="/links/edit/${slug}">
           <label for="content">Content (Markdown)</label>
           <textarea id="content" name="content" required>${link.content}</textarea>
           <button type="submit">Save Changes</button>
           <a href="/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Edit link handler
@@ -1037,6 +668,7 @@ app.get("/qr/:slug", authMiddleware, async (c) => {
     return c.html("Access denied", 403);
   }
 
+  const user = await getUser(email);
   const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
   // Use trackable QR URL that will record QR scans separately
   const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
@@ -1052,75 +684,19 @@ app.get("/qr/:slug", authMiddleware, async (c) => {
     }
   });
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>QR Code: ${slug} - LinkedOut</title>
-        <style>
-          body {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            text-align: center;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-          }
-          .qr-container {
-            background: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin: 20px 0;
-          }
-          .qr-container #qr-code-display {
-            display: flex;
-            justify-content: center;
-          }
-          .qr-container #qr-code-display svg {
-            max-width: 100%;
-            height: auto;
-          }
-          .actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-          }
-          .btn {
-            padding: 10px 20px;
-            background: #0066cc;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-          }
-          .btn:hover {
-            background: #0052a3;
-          }
-          .link-url {
-            font-size: 14px;
-            color: #666;
-            word-break: break-all;
-            margin: 20px 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>QR Code for: ${slug}</h1>
-          <a href="/links/view/${slug}">Back to Link</a>
-        </div>
+  return c.html(
+    DashboardLayout({
+      title: `QR Code: ${slug}`,
+      email: email,
+      isAdmin: user?.is_admin,
+      scripts: ['/qr.js'],
+      children: html`
+        <script>window.qrSlug = '${slug}';</script>
+        <h2>QR Code for: ${slug}</h2>
 
         <div class="qr-container">
           <div id="qr-code-display">
-            ${qrSvg}
+            ${raw(qrSvg)}
           </div>
           <div class="link-url">${linkUrl}</div>
         </div>
@@ -1128,55 +704,15 @@ app.get("/qr/:slug", authMiddleware, async (c) => {
         <div class="actions">
           <button class="btn" onclick="downloadQRCode()">Download QR Code</button>
           <button class="btn" onclick="window.print()">Print QR Code</button>
+          <a href="/links/view/${slug}" class="btn btn-secondary">Back to Link</a>
         </div>
 
-        <p style="color: #666; font-size: 14px; margin-top: 40px;">
+        <p class="info-text">
           QR code scans are tracked separately from regular clicks in your analytics.
         </p>
-
-        <style>
-          @media print {
-            body > *:not(.qr-container) {
-              display: none;
-            }
-            .qr-container {
-              box-shadow: none;
-            }
-          }
-        </style>
-
-        <script>
-          function downloadQRCode() {
-            const svg = document.querySelector('#qr-code-display svg');
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const svgData = new XMLSerializer().serializeToString(svg);
-            const img = new Image();
-            
-            canvas.width = 400;
-            canvas.height = 400;
-            
-            img.onload = function() {
-              ctx.fillStyle = 'white';
-              ctx.fillRect(0, 0, 400, 400);
-              ctx.drawImage(img, 0, 0);
-              
-              canvas.toBlob(function(blob) {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'qr-${slug}.png';
-                a.click();
-                URL.revokeObjectURL(url);
-              });
-            };
-            
-            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-          }
-        </script>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // QR code scan redirect (tracks as qr_scan)
@@ -1453,98 +989,57 @@ app.get("/analytics", authMiddleware, async (c) => {
     errorMessage = error instanceof Error ? error.message : "Unknown error querying analytics";
   }
 
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Analytics - LinkedOut</title>
-        <style>
-          body {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-          }
-          .card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-          }
-          .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-          }
-          .stat {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-          }
-          .stat-value {
-            font-size: 36px;
-            font-weight: bold;
-            color: #0066cc;
-          }
-          .stat-label {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
-          }
-          .warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          th, td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-          }
-          th {
-            background: #f5f5f5;
-            font-weight: 600;
-          }
-          .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            background: #e3f2fd;
-            color: #1976d2;
-          }
-          .badge.click { background: #e8f5e9; color: #2e7d32; }
-          .badge.qr { background: #fce4ec; color: #c2185b; }
-          .badge.view { background: #f3e5f5; color: #7b1fa2; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Analytics Dashboard</h1>
-          <div>
-            <a href="/dashboard" style="margin-right: 20px;">Back to Dashboard</a>
-            <span>Logged in as: ${email}</span>
-          </div>
-        </div>
+  const user = await getUser(email);
 
-        ${errorMessage ? `
+  return c.html(
+    DashboardLayout({
+      title: "Analytics Dashboard",
+      email: email,
+      isAdmin: user?.is_admin,
+      styles: `
+        .stat-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+          margin: 20px 0;
+        }
+        .stat {
+          background: #f5f5f5;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+        }
+        .stat-value {
+          font-size: 36px;
+          font-weight: bold;
+          color: #0066cc;
+        }
+        .stat-label {
+          font-size: 14px;
+          color: #666;
+          margin-top: 5px;
+        }
+        .warning {
+          background: #fff3cd;
+          border: 1px solid #ffc107;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 20px 0;
+        }
+        .badge {
+          display: inline-block;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          background: #e3f2fd;
+          color: #1976d2;
+        }
+        .badge.click { background: #e8f5e9; color: #2e7d32; }
+        .badge.qr { background: #fce4ec; color: #c2185b; }
+        .badge.view { background: #f3e5f5; color: #7b1fa2; }
+      `,
+      children: html`
+        ${errorMessage ? html`
           <div class="warning" style="background: #ffebee; border-color: #f44336;">
             <strong>❌ Error Loading Analytics:</strong> ${errorMessage}
             <p>Check the Worker logs for more details. Common issues:</p>
@@ -1555,7 +1050,7 @@ app.get("/analytics", authMiddleware, async (c) => {
               <li>SQL query syntax errors (check console logs)</li>
             </ul>
           </div>
-        ` : !hasData ? `
+        ` : !hasData ? html`
           <div class="warning">
             <strong>⚠️ No Data Yet:</strong> The pipeline is configured but hasn't collected any events yet.
             <p>To generate data:</p>
@@ -1567,14 +1062,14 @@ app.get("/analytics", authMiddleware, async (c) => {
             </ul>
             <p><em>Note: Pipelines batch data every 5 minutes (300 seconds) by default.</em></p>
           </div>
-        ` : ''}
+        ` : html``}
 
-        ${slugFilter ? `
+        ${slugFilter ? html`
           <div class="card">
             <h2>Analytics for: ${slugFilter}</h2>
             <p>Filtering data for this link page only.</p>
           </div>
-        ` : `
+        ` : html`
           <div class="card">
             <h2>All Your Links</h2>
             <p>Showing aggregate data across all your link pages.</p>
@@ -1613,13 +1108,13 @@ app.get("/analytics", authMiddleware, async (c) => {
               </tr>
             </thead>
             <tbody>
-              ${recentEvents.length === 0 ? `
+              ${recentEvents.length === 0 ? html`
                 <tr>
                   <td colspan="5" style="text-align: center; color: #999; padding: 40px;">
                     No events yet - create a link and visit it to see data here
                   </td>
                 </tr>
-              ` : recentEvents.map(event => `
+              ` : recentEvents.map(event => html`
                 <tr>
                   <td>${new Date(event.timestamp).toLocaleString()}</td>
                   <td>
@@ -1628,10 +1123,10 @@ app.get("/analytics", authMiddleware, async (c) => {
                     </span>
                   </td>
                   <td>${event.slug}</td>
-                  <td>${event.out ? `<a href="${event.out}" target="_blank">${event.out.substring(0, 50)}...</a>` : '-'}</td>
+                  <td>${event.out ? html`<a href="${event.out}" target="_blank">${event.out.substring(0, 50)}...</a>` : '-'}</td>
                   <td style="font-size: 11px; color: #666;">${event.user_agent ? event.user_agent.substring(0, 40) + '...' : '-'}</td>
                 </tr>
-              `).join('')}
+              `)}
             </tbody>
           </table>
         </div>
@@ -1650,9 +1145,9 @@ GROUP BY event_type, date
 ORDER BY date DESC
 LIMIT 30</code></pre>
         </div>
-      </body>
-    </html>
-  `);
+      `
+    })
+  );
 });
 
 // Catch-all for static assets and 404 - MUST BE LAST
@@ -1662,7 +1157,17 @@ app.get("*", async (c) => {
     return c.env.ASSETS.fetch(c.req.raw);
   }
   // Fall through to 404
-  return c.html("<h1>404 - Page not found</h1>", 404);
+  return c.html(
+    BaseLayout({
+      title: "404 - Not Found",
+      children: html`
+        <h1>404 - Page Not Found</h1>
+        <p>The page you're looking for doesn't exist.</p>
+        <a href="/">Go to Homepage</a>
+      `
+    }),
+    404
+  );
 });
 
 export default app;
