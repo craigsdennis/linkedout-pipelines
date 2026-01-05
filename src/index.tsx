@@ -196,15 +196,26 @@ app.get("/dashboard", authMiddleware, async (c) => {
               <ul style="list-style: none; padding: 0;">
                 ${userLinks.map(link => html`
                   <li style="padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                      <strong>${link.slug}</strong>
+                    <div style="flex: 1;">
+                      ${link.title ? html`
+                        <strong style="font-size: 16px;">${link.title}</strong>
+                        <br />
+                        <span style="color: #666; font-family: monospace; font-size: 14px;">/out/${link.slug}</span>
+                      ` : html`
+                        <strong style="font-size: 16px;">${link.slug}</strong>
+                        <br />
+                        <span style="color: #999; font-style: italic; font-size: 14px;">No title set</span>
+                      `}
                       <br />
-                      <small>Created: ${new Date(link.created_at).toLocaleDateString()}</small>
+                      <small style="color: #999;">Created: ${new Date(link.created_at).toLocaleDateString()}</small>
                     </div>
-                    <div>
-                      <a href="/out/${link.slug}" target="_blank" style="margin-left: 10px;">View</a>
-                      <a href="/links/view/${link.slug}" style="margin-left: 10px;">Manage</a>
-                      <a href="/qr/${link.slug}" target="_blank" style="margin-left: 10px;">QR Code</a>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                      <a href="/out/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">View</a>
+                      <a href="/links/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
+                      <a href="/qr/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">QR Code</a>
+                      <a href="/analytics?slug=${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px; background: #f5f5f5; color: #333;" title="View analytics for this page">
+                        📊 Analytics
+                      </a>
                     </div>
                   </li>
                 `)}
@@ -378,6 +389,17 @@ app.get("/links/create", authMiddleware, async (c) => {
             Only lowercase letters, numbers, and hyphens. Example: my-conference-talk
           </p>
 
+          <label for="title" style="display: block; margin-bottom: 5px; font-weight: 500;">Page Title (Optional)</label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title" 
+            placeholder="My Conference Talk 2025"
+          />
+          <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
+            A friendly title for your link page (used in analytics)
+          </p>
+
           <label for="content" style="display: block; margin-bottom: 5px; font-weight: 500;">Content (Markdown)</label>
           <textarea 
             id="content" 
@@ -408,6 +430,7 @@ app.post("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const formData = await c.req.formData();
   const slug = formData.get("slug") as string;
+  const title = formData.get("title") as string;
   const content = formData.get("content") as string;
 
   if (!slug || !content) {
@@ -427,6 +450,7 @@ app.post("/links/create", authMiddleware, async (c) => {
 
   const link: Link = {
     slug,
+    title: title || undefined,
     content,
     owner_email: email,
     created_at: new Date().toISOString(),
@@ -567,6 +591,15 @@ app.get("/links/edit/:slug", authMiddleware, async (c) => {
           margin-bottom: 5px;
           font-weight: 500;
         }
+        input[type="text"] {
+          width: 100%;
+          padding: 10px;
+          margin-bottom: 20px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          box-sizing: border-box;
+          font-size: 16px;
+        }
         textarea {
           width: 100%;
           padding: 10px;
@@ -590,8 +623,12 @@ app.get("/links/edit/:slug", authMiddleware, async (c) => {
       children: html`
         <h2>Edit: ${slug}</h2>
         <form method="POST" action="/links/edit/${slug}">
+          <label for="title">Page Title (Optional)</label>
+          <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your link page">
+          
           <label for="content">Content (Markdown)</label>
           <textarea id="content" name="content" required>${link.content}</textarea>
+          
           <button type="submit">Save Changes</button>
           <a href="/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
@@ -618,12 +655,14 @@ app.post("/links/edit/:slug", authMiddleware, async (c) => {
 
   const formData = await c.req.formData();
   const content = formData.get("content") as string;
+  const title = formData.get("title") as string;
 
   if (!content) {
     return c.html("Content is required", 400);
   }
 
   link.content = content;
+  link.title = title || undefined;
   link.updated_at = new Date().toISOString();
 
   await c.env.LINKS.put(`link:${slug}`, JSON.stringify(link));
@@ -790,7 +829,7 @@ app.get("/debug/pipeline", async (c) => {
 // Debug endpoint - test R2 SQL query directly
 app.get("/debug/r2sql", async (c) => {
   try {
-    const testQuery = `SELECT COUNT(*) FROM default.click_events_v4`;
+    const testQuery = `SELECT COUNT(*) FROM default.click_events_v5`;
     
     const response = await fetch(
       `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
@@ -838,6 +877,9 @@ app.get("/analytics", authMiddleware, async (c) => {
     clickThroughRate: "0%",
   };
   let recentEvents: any[] = [];
+  let destinationBreakdown: Array<{ out: string; click_count: number }> = [];
+  let linkTextBreakdown: Array<{ link_text: string; out: string; click_count: number }> = [];
+  let slugBreakdown: Array<{ slug: string; title: string | null; click_count: number }> = [];
   let hasData = false;
   let errorMessage: string | null = null;
 
@@ -871,7 +913,7 @@ app.get("/analytics", authMiddleware, async (c) => {
       SELECT 
         event_type,
         COUNT(*)
-      FROM default.click_events_v4
+      FROM default.click_events_v5
       ${whereClause}
       GROUP BY event_type
     `;
@@ -935,8 +977,9 @@ app.get("/analytics", authMiddleware, async (c) => {
         event_type,
         slug,
         out,
+        link_text,
         user_agent
-      FROM default.click_events_v4
+      FROM default.click_events_v5
       ${whereClause}
       ORDER BY __ingest_ts DESC
       LIMIT 20
@@ -979,6 +1022,179 @@ app.get("/analytics", authMiddleware, async (c) => {
       const errorText = await eventsResponse.text();
       console.error("R2 SQL events query failed:", eventsResponse.status, errorText);
       console.error("Query was:", eventsQuery);
+    }
+
+    // Query for destination URL breakdown (clicks only)
+    // Note: R2 SQL has limitations on ORDER BY, we'll sort in application code
+    const destinationQuery = `
+      SELECT 
+        out,
+        COUNT(*)
+      FROM default.click_events_v5
+      ${whereClause}
+        AND event_type = 'click'
+        AND out IS NOT NULL
+      GROUP BY out
+      LIMIT 100
+    `;
+
+    const destinationResponse = await fetch(
+      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: destinationQuery }),
+      }
+    );
+
+    if (destinationResponse.ok) {
+      const destinationData = await destinationResponse.json() as {
+        result?: { rows?: Array<Record<string, any>> },
+        errors?: Array<any>
+      };
+      
+      console.log("Destination query response:", JSON.stringify(destinationData));
+      console.log("Destination query was:", destinationQuery);
+      
+      const rows = destinationData.result?.rows;
+      if (rows && rows.length > 0) {
+        destinationBreakdown = rows
+          .map((row: any) => ({
+            out: row.out,
+            click_count: row['count(*)'] || row.click_count || 0
+          }))
+          .sort((a, b) => b.click_count - a.click_count)
+          .slice(0, 20);
+        console.log("Destination breakdown set, length:", destinationBreakdown.length);
+      } else {
+        console.log("No destination data found in response");
+      }
+    } else {
+      const errorText = await destinationResponse.text();
+      console.error("R2 SQL destination query failed:", destinationResponse.status, errorText);
+      console.error("Query was:", destinationQuery);
+    }
+
+    // Query for link text breakdown (what text was clicked)
+    const linkTextQuery = `
+      SELECT 
+        link_text,
+        out,
+        COUNT(*)
+      FROM default.click_events_v5
+      ${whereClause}
+        AND event_type = 'click'
+        AND link_text IS NOT NULL
+        AND out IS NOT NULL
+      GROUP BY link_text, out
+      LIMIT 100
+    `;
+
+    const linkTextResponse = await fetch(
+      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: linkTextQuery }),
+      }
+    );
+
+    if (linkTextResponse.ok) {
+      const linkTextData = await linkTextResponse.json() as {
+        result?: { rows?: Array<Record<string, any>> },
+        errors?: Array<any>
+      };
+      
+      console.log("Link text query response:", JSON.stringify(linkTextData));
+      
+      const rows = linkTextData.result?.rows;
+      if (rows && rows.length > 0) {
+        linkTextBreakdown = rows
+          .map((row: any) => ({
+            link_text: row.link_text,
+            out: row.out,
+            click_count: row['count(*)'] || row.click_count || 0
+          }))
+          .sort((a, b) => b.click_count - a.click_count)
+          .slice(0, 20);
+        console.log("Link text breakdown set, length:", linkTextBreakdown.length);
+      }
+    } else {
+      const errorText = await linkTextResponse.text();
+      console.error("R2 SQL link text query failed:", linkTextResponse.status, errorText);
+    }
+
+    // Query for slug breakdown (only when not filtering by slug)
+    if (!slugFilter) {
+      const slugQuery = `
+        SELECT 
+          slug,
+          COUNT(*)
+        FROM default.click_events_v5
+        WHERE owner_email = '${email}'
+          AND event_type = 'click'
+        GROUP BY slug
+        LIMIT 100
+      `;
+
+      const slugResponse = await fetch(
+        `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: slugQuery }),
+        }
+      );
+
+      if (slugResponse.ok) {
+        const slugData = await slugResponse.json() as {
+          result?: { rows?: Array<Record<string, any>> },
+          errors?: Array<any>
+        };
+        
+        console.log("Slug query response:", JSON.stringify(slugData));
+        
+        const rows = slugData.result?.rows;
+        if (rows && rows.length > 0) {
+          // Fetch link titles from KV for each slug
+          const slugsWithTitles = await Promise.all(
+            rows.map(async (row: any) => {
+              const linkStr = await c.env.LINKS.get(`link:${row.slug}`);
+              let title: string | null = null;
+              if (linkStr) {
+                try {
+                  const link = JSON.parse(linkStr);
+                  title = link.title || null;
+                } catch (e) {
+                  console.error(`Failed to parse link for slug ${row.slug}:`, e);
+                }
+              }
+              return {
+                slug: row.slug,
+                title: title,
+                click_count: row['count(*)'] || 0
+              };
+            })
+          );
+          
+          slugBreakdown = slugsWithTitles
+            .sort((a, b) => b.click_count - a.click_count)
+            .slice(0, 20);
+          console.log("Slug breakdown set, length:", slugBreakdown.length);
+        }
+      } else {
+        const errorText = await slugResponse.text();
+        console.error("R2 SQL slug query failed:", slugResponse.status, errorText);
+      }
     }
   } catch (error) {
     console.error("Error querying R2 SQL - exception thrown:", error);
@@ -1095,41 +1311,149 @@ app.get("/analytics", authMiddleware, async (c) => {
           </div>
         </div>
 
-        <div class="card">
-          <h3>Recent Events</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Type</th>
-                <th>Link Slug</th>
-                <th>Destination URL</th>
-                <th>User Agent</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${recentEvents.length === 0 ? html`
+        ${!slugFilter && slugBreakdown.length > 0 ? html`
+          <div class="card">
+            <h3>Clicks by Link Page</h3>
+            <table>
+              <thead>
                 <tr>
-                  <td colspan="5" style="text-align: center; color: #999; padding: 40px;">
-                    No events yet - create a link and visit it to see data here
-                  </td>
+                  <th>Page</th>
+                  <th>Slug</th>
+                  <th style="text-align: right;">Clicks</th>
+                  <th style="text-align: center;">Actions</th>
                 </tr>
-              ` : recentEvents.map(event => html`
+              </thead>
+              <tbody>
+                ${slugBreakdown.map(item => html`
+                  <tr>
+                    <td>
+                      ${item.title ? html`
+                        <strong>${item.title}</strong>
+                      ` : html`
+                        <span style="color: #999; font-style: italic;">Untitled</span>
+                      `}
+                    </td>
+                    <td>
+                      <a href="/out/${item.slug}" target="_blank" style="color: #0066cc; font-family: monospace; font-size: 0.9em;">
+                        /out/${item.slug}
+                      </a>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">${item.click_count}</td>
+                    <td style="text-align: center;">
+                      <a href="/analytics?slug=${item.slug}" style="display: inline-block; padding: 6px 12px; background: #f5f5f5; color: #333; text-decoration: none; border-radius: 4px; font-size: 13px; border: 1px solid #ddd;" title="View detailed analytics for this page">
+                        📊 Filter
+                      </a>
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        ` : html``}
+
+        ${destinationBreakdown.length > 0 ? html`
+          <div class="card">
+            <h3>Top Clicked Links</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+              Most popular destination URLs from your link pages
+            </p>
+            <table>
+              <thead>
                 <tr>
-                  <td>${new Date(event.timestamp).toLocaleString()}</td>
-                  <td>
-                    <span class="badge ${event.event_type === 'click' ? 'click' : event.event_type === 'qr_scan' ? 'qr' : 'view'}">
-                      ${event.event_type}
-                    </span>
-                  </td>
-                  <td>${event.slug}</td>
-                  <td>${event.out ? html`<a href="${event.out}" target="_blank">${event.out.substring(0, 50)}...</a>` : '-'}</td>
-                  <td style="font-size: 11px; color: #666;">${event.user_agent ? event.user_agent.substring(0, 40) + '...' : '-'}</td>
+                  <th>Destination URL</th>
+                  <th style="text-align: right;">Clicks</th>
                 </tr>
-              `)}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                ${destinationBreakdown.map(item => html`
+                  <tr>
+                    <td>
+                      <a href="${item.out}" target="_blank" style="color: #0066cc;">
+                        ${item.out.length > 60 ? item.out.substring(0, 60) + '...' : item.out}
+                      </a>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">${item.click_count}</td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        ` : html``}
+
+        ${linkTextBreakdown.length > 0 ? html`
+          <div class="card">
+            <h3>Most Clicked Link Text</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+              Which link text gets the most engagement
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Link Text</th>
+                  <th>Destination</th>
+                  <th style="text-align: right;">Clicks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linkTextBreakdown.map(item => html`
+                  <tr>
+                    <td style="font-weight: 500;">${item.link_text}</td>
+                    <td>
+                      <a href="${item.out}" target="_blank" style="color: #0066cc; font-size: 13px;">
+                        ${item.out.length > 40 ? item.out.substring(0, 40) + '...' : item.out}
+                      </a>
+                    </td>
+                    <td style="text-align: right; font-weight: 600;">${item.click_count}</td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        ` : html``}
+
+        ${slugFilter ? html`
+          <div class="card">
+            <h3>Recent Events</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Link Text</th>
+                  <th>Destination URL</th>
+                  <th>User Agent</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recentEvents.length === 0 ? html`
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: #999; padding: 40px;">
+                      No events yet - create a link and visit it to see data here
+                    </td>
+                  </tr>
+                ` : recentEvents.map(event => html`
+                  <tr>
+                    <td>${new Date(event.timestamp).toLocaleString()}</td>
+                    <td>
+                      <span class="badge ${event.event_type === 'click' ? 'click' : event.event_type === 'qr_scan' ? 'qr' : 'view'}">
+                        ${event.event_type}
+                      </span>
+                    </td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${event.link_text || '-'}
+                    </td>
+                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${event.out ? html`<a href="${event.out}" target="_blank" style="color: #0066cc;">${event.out.length > 40 ? event.out.substring(0, 40) + '...' : event.out}</a>` : '-'}
+                    </td>
+                    <td style="font-size: 11px; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${event.user_agent ? (event.user_agent.length > 30 ? event.user_agent.substring(0, 30) + '...' : event.user_agent) : '-'}
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        ` : html``}
 
         <div class="card">
           <h3>Example R2 SQL Query</h3>

@@ -32,7 +32,7 @@
 	"pipelines": [
 		{
 			"binding": "CLICK_STREAM",
-			"pipeline": "5c997851dcbf4541b83bdce392e6bf22"
+			"pipeline": "9b56df91a2c44428881c9708883f8083"
 		}
 	],
 	"vars": {

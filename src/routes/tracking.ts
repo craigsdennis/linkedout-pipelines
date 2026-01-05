@@ -9,6 +9,7 @@ tracking.post("/api/track", async (c) => {
   const payload = await c.req.json<{
     url: string;
     out: string | null;
+    link_text?: string | null;
     visitor_id?: string;
   }>();
 
@@ -31,6 +32,7 @@ tracking.post("/api/track", async (c) => {
     timestamp: new Date().toISOString(),
     url: payload.url,
     out: payload.out,
+    link_text: payload.link_text || undefined,
     slug: link.slug,
     owner_email: link.owner_email,
     visitor_id: payload.visitor_id,

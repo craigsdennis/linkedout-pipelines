@@ -36,6 +36,11 @@
       "required": false
     },
     {
+      "name": "link_text",
+      "type": "string",
+      "required": false
+    },
+    {
       "name": "user_agent",
       "type": "string",
       "required": false

@@ -40,9 +40,13 @@
       return;
     }
 
+    // Get the link text (innerText or textContent)
+    const linkText = clickedAnchor?.innerText || clickedAnchor?.textContent || null;
+
     const payload = JSON.stringify({
       url: window.location.href,
       out: clickedAnchor?.href ?? null,
+      link_text: linkText,
       visitor_id: visitorId,
     });
     const blob = new Blob([payload], { type: "application/json" });

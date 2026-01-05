@@ -3,6 +3,7 @@ export interface ClickEvent {
   timestamp: string;
   url: string;
   out: string | null;
+  link_text?: string; // the anchor text that was clicked
   slug: string;
   owner_email: string;
   visitor_id?: string;
@@ -23,6 +24,7 @@ export interface ClickEvent {
 // Link stored in KV
 export interface Link {
   slug: string;
+  title?: string; // optional title for the link page
   content: string; // markdown content
   owner_email: string;
   created_at: string;
