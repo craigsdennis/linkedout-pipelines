@@ -5,14 +5,9 @@ import { getCookie } from "hono/cookie";
 import { html, raw } from "hono/html";
 import QRCode from "qrcode";
 import type { ClickEvent, Link } from "./types";
-import {
-  verifyToken,
-  getUser,
-  createUser,
-} from "./utils/auth";
+import { verifyToken } from "./utils/auth";
 import { getCfProperties, getVisitorId } from "./utils/helpers";
-import { authMiddleware } from "./middleware/auth";
-import { BaseLayout, DashboardLayout } from "./views/layouts";
+import { BaseLayout } from "./views/layouts";
 import tracking from "./routes/tracking";
 import auth from "./routes/auth";
 import dashboard from "./routes/dashboard";
