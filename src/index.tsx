@@ -879,7 +879,7 @@ app.get("/analytics", authMiddleware, async (c) => {
   let recentEvents: any[] = [];
   let destinationBreakdown: Array<{ out: string; click_count: number }> = [];
   let linkTextBreakdown: Array<{ link_text: string; out: string; click_count: number }> = [];
-  let slugBreakdown: Array<{ slug: string; title: string | null; click_count: number }> = [];
+  let slugBreakdown: Array<{ slug: string; title: string | null; page_views: number; clicks: number; qr_scans: number }> = [];
   let hasData = false;
   let errorMessage: string | null = null;
 
@@ -1135,12 +1135,12 @@ app.get("/analytics", authMiddleware, async (c) => {
       const slugQuery = `
         SELECT 
           slug,
+          event_type,
           COUNT(*)
         FROM default.click_events_v5
         WHERE owner_email = '${email}'
-          AND event_type = 'click'
-        GROUP BY slug
-        LIMIT 100
+        GROUP BY slug, event_type
+        LIMIT 500
       `;
 
       const slugResponse = await fetch(
@@ -1165,29 +1165,49 @@ app.get("/analytics", authMiddleware, async (c) => {
         
         const rows = slugData.result?.rows;
         if (rows && rows.length > 0) {
+          // Group by slug and aggregate event types
+          const slugMap = new Map<string, { page_views: number; clicks: number; qr_scans: number }>();
+          
+          rows.forEach((row: any) => {
+            const slug = row.slug;
+            const eventType = row.event_type;
+            const count = row['count(*)'] || 0;
+            
+            if (!slugMap.has(slug)) {
+              slugMap.set(slug, { page_views: 0, clicks: 0, qr_scans: 0 });
+            }
+            
+            const stats = slugMap.get(slug)!;
+            if (eventType === 'page_view') stats.page_views += count;
+            if (eventType === 'click') stats.clicks += count;
+            if (eventType === 'qr_scan') stats.qr_scans += count;
+          });
+          
           // Fetch link titles from KV for each slug
           const slugsWithTitles = await Promise.all(
-            rows.map(async (row: any) => {
-              const linkStr = await c.env.LINKS.get(`link:${row.slug}`);
+            Array.from(slugMap.entries()).map(async ([slug, stats]) => {
+              const linkStr = await c.env.LINKS.get(`link:${slug}`);
               let title: string | null = null;
               if (linkStr) {
                 try {
                   const link = JSON.parse(linkStr);
                   title = link.title || null;
                 } catch (e) {
-                  console.error(`Failed to parse link for slug ${row.slug}:`, e);
+                  console.error(`Failed to parse link for slug ${slug}:`, e);
                 }
               }
               return {
-                slug: row.slug,
+                slug: slug,
                 title: title,
-                click_count: row['count(*)'] || 0
+                page_views: stats.page_views,
+                clicks: stats.clicks,
+                qr_scans: stats.qr_scans
               };
             })
           );
           
           slugBreakdown = slugsWithTitles
-            .sort((a, b) => b.click_count - a.click_count)
+            .sort((a, b) => b.clicks - a.clicks)
             .slice(0, 20);
           console.log("Slug breakdown set, length:", slugBreakdown.length);
         }
@@ -1313,13 +1333,15 @@ app.get("/analytics", authMiddleware, async (c) => {
 
         ${!slugFilter && slugBreakdown.length > 0 ? html`
           <div class="card">
-            <h3>Clicks by Link Page</h3>
+            <h3>Activity by Link Page</h3>
             <table>
               <thead>
                 <tr>
                   <th>Page</th>
                   <th>Slug</th>
+                  <th style="text-align: right;">Views</th>
                   <th style="text-align: right;">Clicks</th>
+                  <th style="text-align: right;">QR Scans</th>
                   <th style="text-align: center;">Actions</th>
                 </tr>
               </thead>
@@ -1338,7 +1360,9 @@ app.get("/analytics", authMiddleware, async (c) => {
                         /out/${item.slug}
                       </a>
                     </td>
-                    <td style="text-align: right; font-weight: 600;">${item.click_count}</td>
+                    <td style="text-align: right; font-weight: 600;">${item.page_views}</td>
+                    <td style="text-align: right; font-weight: 600;">${item.clicks}</td>
+                    <td style="text-align: right; font-weight: 600;">${item.qr_scans}</td>
                     <td style="text-align: center;">
                       <a href="/analytics?slug=${item.slug}" style="display: inline-block; padding: 6px 12px; background: #f5f5f5; color: #333; text-decoration: none; border-radius: 4px; font-size: 13px; border: 1px solid #ddd;" title="View detailed analytics for this page">
                         📊 Filter
