@@ -1,6 +1,6 @@
 # OpenCode Session Log - LinkedOut Pipelines Project
-**Date**: December 29-30, 2025  
-**Duration**: ~4 hours  
+**Date**: December 29-30, 2025 + January 5, 2026  
+**Duration**: ~6 hours total  
 **Project**: LinkedOut - Link tracking analytics with Cloudflare Pipelines
 
 ---
@@ -36,6 +36,18 @@ This session involved building a complete data pipeline application from scratch
    - Added comprehensive test suite (33 tests)
    - Validated types, auth, schema, and helper functions
 
+6. **Code Refactoring** (January 2026)
+   - Reduced main file from 2045 → 1173 lines (42.6% reduction)
+   - Created reusable layout system
+   - Moved CSS and JS to public directory
+   - Added 21 layout tests
+
+7. **Pipeline v5 Migration** (January 2026)
+   - Migrated to pipeline v5 with link_text tracking
+   - Fixed server-side tracking gap
+   - Enhanced analytics with slug breakdown
+   - Added filtering throughout UI
+
 ---
 
 ## Session Logs
@@ -48,8 +60,9 @@ Detailed logs are split into chronological sections:
 4. [04-cf-properties.md](./04-cf-properties.md) - Adding Cloudflare metadata tracking
 5. [05-error-handling.md](./05-error-handling.md) - Improving error handling
 6. [06-testing.md](./06-testing.md) - Adding test suite
-7. [user-requests.md](./user-requests.md) - Verbatim user requests
-8. [implementation-plan.md](./implementation-plan.md) - Technical decisions and architecture
+7. [07-pipeline-v5-migration.md](./07-pipeline-v5-migration.md) - Pipeline v5 migration and analytics enhancements
+8. [user-requests.md](./user-requests.md) - Verbatim user requests
+9. [implementation-plan.md](./implementation-plan.md) - Technical decisions and architecture
 
 ---
 
@@ -57,12 +70,13 @@ Detailed logs are split into chronological sections:
 
 ### Working Features
 - ✅ Magic link authentication
-- ✅ Link management (create, edit, view)
-- ✅ Click tracking with CF properties (country, city, colo, lat/lng)
+- ✅ Link management (create, edit, view with titles)
+- ✅ Click tracking with CF properties and link text
 - ✅ QR code generation and tracking
-- ✅ Analytics dashboard with R2 SQL queries
+- ✅ Analytics dashboard with filtering and slug breakdown
 - ✅ Admin panel for user management
-- ✅ 33 passing tests
+- ✅ 54 passing tests
+- ✅ Reusable layout system
 
 ### Tech Stack
 - **Runtime**: Cloudflare Workers
@@ -74,8 +88,9 @@ Detailed logs are split into chronological sections:
 
 ### Deployment
 - **Production URL**: https://linkedout-pipelines.craigsdemos.workers.dev
-- **Pipeline**: click_events_v3 table with 15 fields
+- **Pipeline**: click_events_v5 table with 17 fields (includes link_text)
 - **Data Flow**: Worker → Pipeline (300s batch) → Iceberg → R2 SQL
+- **Main File**: 1,449 lines (down from 2,045)
 
 ---
 
@@ -91,9 +106,12 @@ Detailed logs are split into chronological sections:
 
 ## Session Statistics
 
-- **Files Created/Modified**: 15+
+- **Total Sessions**: 7
+- **Files Created/Modified**: 25+
 - **TypeScript Errors Fixed**: 8
-- **Tests Written**: 33 (all passing)
-- **Pipeline Recreations**: 3 (v1 → v2 → v3)
-- **Deployments**: 15+
-- **Debug Iterations**: Many (analytics queries, CF properties, table access)
+- **Tests Written**: 54 (all passing)
+- **Pipeline Versions**: 5 (v1 → v2 → v3 → v4 → v5)
+- **Deployments**: 30+
+- **Code Reduction**: 2,045 → 1,449 lines (after extracting layouts/CSS/JS)
+- **Product Feedback Documents**: 2 (Schema flag UX, Migration DX)
+- **Debug Iterations**: Many (analytics queries, CF properties, table access, link_text tracking)
