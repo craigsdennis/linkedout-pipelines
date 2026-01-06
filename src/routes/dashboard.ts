@@ -113,7 +113,7 @@ dashboard.get("/admin", authMiddleware, async (c) => {
   // Get map data for visualization
   let mapData;
   try {
-    mapData = await getMapData(c.env);
+    mapData = await getMapData();
   } catch (error) {
     console.error("Failed to load map data:", error);
     mapData = null;
@@ -226,7 +226,7 @@ dashboard.post("/admin/clear-map-cache", authMiddleware, async (c) => {
 
   try {
     console.log("Admin clearing map cache:", email);
-    await refreshMapDataCache(c.env);
+    await refreshMapDataCache();
     console.log("Map cache cleared successfully");
   } catch (error) {
     console.error("Failed to refresh map cache:", error);

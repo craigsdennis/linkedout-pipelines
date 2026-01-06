@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+
 /**
  * Location statistics for map visualization
  */
@@ -26,7 +28,7 @@ const CACHE_TTL_SECONDS = 900; // 15 minutes
  * Get location statistics for map visualization
  * Uses KV cache with 15-minute TTL
  */
-export async function getMapData(env: CloudflareBindings): Promise<MapData> {
+export async function getMapData(): Promise<MapData> {
   // Try to get from cache first
   const cached = await env.MAP_CACHE.get<MapData>(MAP_CACHE_KEY, "json");
   if (cached && cached.lastUpdated) {
@@ -149,7 +151,7 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
  * Manually refresh the map data cache
  * Useful for admin actions or scheduled updates
  */
-export async function refreshMapDataCache(env: CloudflareBindings): Promise<MapData> {
+export async function refreshMapDataCache(): Promise<MapData> {
   console.log("Manually refreshing map data cache");
   const mapData = await queryLocationStats(env.ACCOUNT_ID, env.R2_API_TOKEN || "");
   

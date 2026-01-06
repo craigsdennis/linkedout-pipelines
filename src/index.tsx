@@ -219,7 +219,7 @@ app.get("/", async (c) => {
   // Get map data for public showcase
   let mapData;
   try {
-    mapData = await getMapData(c.env);
+    mapData = await getMapData();
   } catch (error) {
     console.error("Failed to load map data for homepage:", error);
     mapData = null;
