@@ -14,7 +14,7 @@ export function WorldMap({ mapData }: { mapData: MapData }) {
   const maxCount = Math.max(...mapData.locations.map((l) => l.count), 1);
   const getColor = (country: string): string => {
     const count = countryMap.get(country.toUpperCase()) || 0;
-    if (count === 0) return "#e5e7eb"; // Gray for no data
+    if (count === 0) return "#cbd5e1"; // Slightly darker gray for better contrast
     
     // Orange gradient for Cloudflare branding
     const intensity = Math.min(count / maxCount, 1);
@@ -94,10 +94,10 @@ export function WorldMap({ mapData }: { mapData: MapData }) {
 
       <svg
         viewBox="0 0 600 300"
-        style="width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;"
+        style="width: 100%; height: auto; border: 1px solid #d1d5db; border-radius: 8px; background: #ffffff;"
       >
         {/* Ocean background */}
-        <rect x="0" y="0" width="600" height="300" fill="#dbeafe" opacity="0.3" />
+        <rect x="0" y="0" width="600" height="300" fill="#e0f2fe" />
 
         {/* Countries */}
         {countries.map((country) => {
