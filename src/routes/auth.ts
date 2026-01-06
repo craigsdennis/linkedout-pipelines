@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { html } from "hono/html";
-import { verifyToken, createAuthToken, isUserAuthorized, getUser, createUser } from "../utils/auth";
+import { verifyToken, createAuthToken, getUser, createUser } from "../utils/auth";
 import { AuthLayout, BaseLayout } from "../views/layouts";
 
 type Variables = {
@@ -49,23 +49,8 @@ auth.post("/auth/request-magic-link", async (c) => {
     return c.html("Email is required", 400);
   }
 
-  // Check if user is authorized
-  const authorized = await isUserAuthorized(email);
-  if (!authorized) {
-    return c.html(
-      AuthLayout({
-        title: "Access Denied",
-        children: html`
-          <h2>Access Denied</h2>
-          <p>Your email (${email}) is not authorized to use LinkedOut.</p>
-          <p>Please contact an administrator to request access.</p>
-          <a href="/">Back to home</a>
-        `
-      }), 403
-    );
-  }
-
-  // Create auth token
+  // Anyone can use LinkedOut - authorization is done by receiving the email
+  // Create auth token (will be sent via email in production)
   const token = await createAuthToken(email);
   const magicLink = `${new URL(c.req.url).origin}/auth/verify?token=${token}`;
 

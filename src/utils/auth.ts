@@ -52,8 +52,3 @@ export async function createUser(
 ): Promise<User> {
   return await createUserInDB(env.DB, email, isAdmin);
 }
-
-export async function isUserAuthorized(email: string): Promise<boolean> {
-  const user = await getUser(email);
-  return user !== null;
-}
