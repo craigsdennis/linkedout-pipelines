@@ -3,6 +3,7 @@ import { marked } from "marked";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { getCookie } from "hono/cookie";
 import { html, raw } from "hono/html";
+import { waitUntil } from "cloudflare:workers";
 import QRCode from "qrcode";
 import type { ClickEvent } from "./types";
 import { verifyToken } from "./utils/auth";
@@ -76,19 +77,19 @@ app.get("/out/:slug", async (c) => {
   const themeStyles = generateThemeCSS(theme, link.custom_css);
   
   // Track page view asynchronously (don't block response)
-  c.executionCtx.waitUntil((async () => {
-    const pageViewEvent: ClickEvent = {
-      timestamp: new Date().toISOString(),
-      url: c.req.url,
-      out: null,
-      slug: link.slug,
-      visitor_id: getVisitorId(c),
-      user_agent: c.req.header("user-agent"),
-      referer: c.req.header("referer"),
-      event_type: "page_view",
-      ...getCfProperties(c.req.raw),
-    };
+  const pageViewEvent: ClickEvent = {
+    timestamp: new Date().toISOString(),
+    url: c.req.url,
+    out: null,
+    slug: link.slug,
+    visitor_id: getVisitorId(c),
+    user_agent: c.req.header("user-agent"),
+    referer: c.req.header("referer"),
+    event_type: "page_view",
+    ...getCfProperties(c.req.raw),
+  };
 
+  waitUntil((async () => {
     console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
     try {
       await c.env.CLICK_STREAM.send([pageViewEvent]);
