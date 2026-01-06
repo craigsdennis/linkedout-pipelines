@@ -250,77 +250,7 @@ app.get("/", async (c) => {
   );
 });
 
-// Dashboard (protected)
-app.get("/debug/pipeline", async (c) => {
-  try {
-    const testEvent: ClickEvent = {
-      timestamp: new Date().toISOString(),
-      event_type: "page_view",
-      slug: "debug-test",
-      owner_email: "debug@test.com",
-      url: "https://test.com/debug",
-      out: null,
-      ...getCfProperties(c.req.raw),
-    };
-
-    console.log("Sending test event to pipeline:", testEvent);
-    await c.env.CLICK_STREAM.send([testEvent]);
-    console.log("Test event sent successfully");
-
-    return c.json({
-      success: true,
-      message: "Event sent to pipeline",
-      event: testEvent,
-      streamId: "07a866c79b6a4ec9ae4d41bba2c93cd8",
-    });
-  } catch (error) {
-    console.error("Error sending to pipeline:", error);
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    }, 500);
-  }
-});
-
-// Debug endpoint - test R2 SQL query directly
-app.get("/debug/r2sql", async (c) => {
-  try {
-    const testQuery = `SELECT COUNT(*) FROM default.click_events_v5`;
-    
-    const response = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: testQuery }),
-      }
-    );
-
-    const data = await response.json();
-    
-    return c.json({
-      status: response.status,
-      ok: response.ok,
-      query: testQuery,
-      response: data,
-      hasToken: !!c.env.R2_API_TOKEN,
-      hasAccountId: !!c.env.ACCOUNT_ID,
-    });
-  } catch (error) {
-    return c.json({
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    }, 500);
-  }
-});
-
-// Analytics dashboard
-// Error handling: Logs detailed errors to console and shows user-friendly messages
-// Validates env vars, checks HTTP response status, and checks for R2 SQL errors in response
+// Catch-all for static assets and 404
 app.get("*", async (c) => {
   // Check if this is a static asset request
   if (c.req.path.startsWith("/track.js") || c.req.path.match(/\.(css|js|png|jpg|gif|ico)$/)) {
