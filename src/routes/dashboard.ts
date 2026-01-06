@@ -7,6 +7,8 @@ import { getUser, createUser } from "../utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helpers";
 import { authMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
+import { WorldMap } from "../views/world-map";
+import { getMapData } from "../utils/map-data";
 import {
   getUserLinks,
   getLinkFromDB,
@@ -108,12 +110,31 @@ dashboard.get("/admin", authMiddleware, async (c) => {
   // Get all users from D1
   const users = await getAllUsersFromDB(c.env.DB);
 
+  // Get map data for visualization
+  let mapData;
+  try {
+    mapData = await getMapData(
+      c.env.AUTH_TOKENS,
+      c.env.ACCOUNT_ID,
+      c.env.R2_API_TOKEN || ""
+    );
+  } catch (error) {
+    console.error("Failed to load map data:", error);
+    mapData = null;
+  }
+
   return c.html(
     DashboardLayout({
       title: "Admin Panel",
       email: email,
       isAdmin: true,
       children: html`
+        ${mapData ? html`
+          <div class="card">
+            ${WorldMap({ mapData })}
+          </div>
+        ` : ''}
+        
         <div class="card">
           <h2>Add New User</h2>
           <form method="POST" action="/admin/add-user" style="display: flex; gap: 10px;">

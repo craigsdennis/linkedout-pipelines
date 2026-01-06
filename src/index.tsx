@@ -10,6 +10,8 @@ import { verifyToken } from "./utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
 import { getLinkFromDB, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
+import { WorldMap } from "./views/world-map";
+import { getMapData } from "./utils/map-data";
 import tracking from "./routes/tracking";
 import auth from "./routes/auth";
 import dashboard from "./routes/dashboard";
@@ -214,6 +216,19 @@ app.get("/", async (c) => {
     email = await verifyToken(token);
   }
 
+  // Get map data for public showcase
+  let mapData;
+  try {
+    mapData = await getMapData(
+      c.env.AUTH_TOKENS,
+      c.env.ACCOUNT_ID,
+      c.env.R2_API_TOKEN || ""
+    );
+  } catch (error) {
+    console.error("Failed to load map data for homepage:", error);
+    mapData = null;
+  }
+
   return c.html(
     BaseLayout({
       title: "Share Links, Track Clicks",
@@ -235,6 +250,10 @@ app.get("/", async (c) => {
           background: #0052a3;
           text-decoration: none;
         }
+        .showcase {
+          max-width: 900px;
+          margin: 40px auto;
+        }
       `,
       children: html`
         <div class="hero">
@@ -245,6 +264,12 @@ app.get("/", async (c) => {
             : html`<a href="/login" class="cta">Get Started</a>`
           }
         </div>
+        
+        ${mapData && mapData.totalViews > 0 ? html`
+          <div class="showcase card">
+            ${WorldMap({ mapData })}
+          </div>
+        ` : ''}
       `
     })
   );
