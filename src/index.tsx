@@ -101,6 +101,7 @@ app.get("/out/:slug", async (c) => {
   // Prepare Open Graph metadata
   const pageTitle = link.title || slug;
   const pageUrl = c.req.url;
+  const faviconUrl = `${new URL(c.req.url).origin}/favicon.png`;
   // Extract plain text description from markdown (first 200 chars)
   const plainText = link.content
     .replace(/[#*_`\[\]()]/g, '') // Remove markdown formatting
@@ -123,6 +124,9 @@ app.get("/out/:slug", async (c) => {
     <meta property="og:url" content="${pageUrl}">
     <meta property="og:title" content="${pageTitle}">
     <meta property="og:description" content="${pageDescription}">
+    <meta property="og:image" content="${faviconUrl}">
+    <meta property="og:image:width" content="1024">
+    <meta property="og:image:height" content="1024">
     <meta property="og:site_name" content="LinkedOut">
     
     <!-- Twitter -->
@@ -130,6 +134,7 @@ app.get("/out/:slug", async (c) => {
     <meta name="twitter:url" content="${pageUrl}">
     <meta name="twitter:title" content="${pageTitle}">
     <meta name="twitter:description" content="${pageDescription}">
+    <meta name="twitter:image" content="${faviconUrl}">
     
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="stylesheet" href="/styles.css">
