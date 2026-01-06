@@ -1129,7 +1129,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         AND event_type = 'click'
         AND out IS NOT NULL
       GROUP BY out
-      LIMIT 100
+      ORDER BY COUNT(*) DESC
     `;
 
     const destinationResponse = await fetch(
@@ -1174,7 +1174,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         AND link_text IS NOT NULL
         AND out IS NOT NULL
       GROUP BY link_text, out
-      LIMIT 100
+      ORDER BY COUNT(*) DESC
     `;
 
     const linkTextResponse = await fetch(
@@ -1218,7 +1218,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         ${whereClause}
           AND event_type = 'click'
         GROUP BY slug
-        LIMIT 100
+        ORDER BY COUNT(*) DESC
       `;
 
       const slugResponse = await fetch(
