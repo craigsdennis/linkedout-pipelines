@@ -9,34 +9,47 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
   // Generate unique map ID
   const mapId = `map-${Math.random().toString(36).substr(2, 9)}`;
 
-  // Group locations by country for aggregation
-  const countryGroups = new Map<string, { count: number; lat: number; lng: number }>();
-  
-  mapData.locations.forEach((loc) => {
-    if (loc.latitude && loc.longitude) {
-      const lat = parseFloat(loc.latitude);
-      const lng = parseFloat(loc.longitude);
+  // Convert locations to markers (keep all individual city data)
+  const markers = mapData.locations
+    .filter((loc) => loc.latitude && loc.longitude)
+    .map((loc) => {
+      const lat = parseFloat(loc.latitude!);
+      const lng = parseFloat(loc.longitude!);
       
-      if (!isNaN(lat) && !isNaN(lng)) {
-        const existing = countryGroups.get(loc.country);
-        if (existing) {
-          existing.count += loc.count;
-        } else {
-          countryGroups.set(loc.country, { count: loc.count, lat, lng });
-        }
-      }
-    }
-  });
-
-  const markers = Array.from(countryGroups.entries()).map(([country, data]) => ({
-    country,
-    lat: data.lat,
-    lng: data.lng,
-    count: data.count,
-  }));
+      if (isNaN(lat) || isNaN(lng)) return null;
+      
+      // Build location label
+      const parts = [];
+      if (loc.city) parts.push(loc.city);
+      if (loc.region) parts.push(loc.region);
+      if (loc.country) parts.push(loc.country);
+      const location = parts.join(', ') || 'Unknown';
+      
+      return {
+        location,
+        country: loc.country,
+        city: loc.city || '',
+        region: loc.region || '',
+        lat,
+        lng,
+        count: loc.count,
+      };
+    })
+    .filter((m) => m !== null) as Array<{
+      location: string;
+      country: string;
+      city: string;
+      region: string;
+      lat: number;
+      lng: number;
+      count: number;
+    }>;
 
   // Calculate marker sizes based on count
   const maxCount = Math.max(...markers.map((m) => m.count), 1);
+  
+  // Count unique countries
+  const uniqueCountries = new Set(markers.map(m => m.country)).size;
   
   return (
     <div class="leaflet-map-container">
@@ -44,7 +57,7 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
         <div>
           <h3 style="margin: 0;">Global Page Views</h3>
           <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
-            {mapData.totalViews.toLocaleString()} views from {countryGroups.size} locations
+            {mapData.totalViews.toLocaleString()} views from {markers.length} locations in {uniqueCountries} countries
           </p>
         </div>
         <div style="font-size: 12px; color: #9ca3af;">
@@ -122,9 +135,9 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
               fillOpacity: 0.6 + (intensity * 0.4) // 0.6-1.0 opacity
             }).addTo(map);
             
-            // Add popup with info
+            // Add popup with detailed location info
             marker.bindPopup(
-              '<strong>' + loc.country + '</strong><br>' +
+              '<strong>' + loc.location + '</strong><br>' +
               loc.count.toLocaleString() + ' view' + (loc.count !== 1 ? 's' : '')
             );
           });

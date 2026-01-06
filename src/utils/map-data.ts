@@ -5,10 +5,11 @@ import { env } from "cloudflare:workers";
  */
 export interface LocationStats {
   country: string;
+  city?: string;
+  region?: string;
   count: number;
   latitude?: string;
   longitude?: string;
-  cities?: Array<{ city: string; count: number }>;
 }
 
 /**
@@ -70,10 +71,12 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
   }
 
   try {
-    // Query for country-level rollup with lat/long (no AS aliases - R2 SQL doesn't support them)
+    // Query for city-level data with lat/long (no AS aliases - R2 SQL doesn't support them)
     const query = `
       SELECT 
         country,
+        city,
+        region,
         COUNT(*),
         latitude,
         longitude
@@ -83,7 +86,7 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
         AND country != ''
         AND latitude IS NOT NULL
         AND longitude IS NOT NULL
-      GROUP BY country, latitude, longitude
+      GROUP BY country, city, region, latitude, longitude
       ORDER BY COUNT(*) DESC
     `;
 
@@ -122,6 +125,8 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
     
     const locations: LocationStats[] = rows.map((row: any) => ({
       country: row.country,
+      city: row.city,
+      region: row.region,
       count: row['count(*)'] || 0, // R2 SQL doesn't support AS aliases
       latitude: row.latitude,
       longitude: row.longitude,
