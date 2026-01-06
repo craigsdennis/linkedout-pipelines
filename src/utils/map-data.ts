@@ -4,6 +4,8 @@
 export interface LocationStats {
   country: string;
   count: number;
+  latitude?: string;
+  longitude?: string;
   cities?: Array<{ city: string; count: number }>;
 }
 
@@ -70,16 +72,20 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
   }
 
   try {
-    // Query for country-level rollup (no AS aliases - R2 SQL doesn't support them)
+    // Query for country-level rollup with lat/long (no AS aliases - R2 SQL doesn't support them)
     const query = `
       SELECT 
         country,
-        COUNT(*)
+        COUNT(*),
+        latitude,
+        longitude
       FROM default.click_events_v6
       WHERE event_type = 'page_view' 
         AND country IS NOT NULL
         AND country != ''
-      GROUP BY country
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+      GROUP BY country, latitude, longitude
       ORDER BY COUNT(*) DESC
     `;
 
@@ -114,11 +120,13 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
     }
 
     const rows = data.result?.rows || [];
-    console.log(`Found ${rows.length} countries with data`);
+    console.log(`Found ${rows.length} locations with data`);
     
     const locations: LocationStats[] = rows.map((row: any) => ({
       country: row.country,
       count: row['count(*)'] || 0, // R2 SQL doesn't support AS aliases
+      latitude: row.latitude,
+      longitude: row.longitude,
     }));
 
     const totalViews = locations.reduce((sum, loc) => sum + loc.count, 0);

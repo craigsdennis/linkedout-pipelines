@@ -7,7 +7,7 @@ import { getUser, createUser } from "../utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helpers";
 import { authMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
-import { WorldMap } from "../views/world-map";
+import { LeafletMap } from "../views/leaflet-map";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
 import {
   getUserLinks,
@@ -131,7 +131,7 @@ dashboard.get("/admin", authMiddleware, async (c) => {
       children: html`
         ${mapData ? html`
           <div class="card">
-            ${WorldMap({ mapData })}
+            ${LeafletMap({ mapData })}
             <div style="margin-top: 20px; text-align: right;">
               <form method="POST" action="/admin/clear-map-cache" style="display: inline;">
                 <button type="submit" class="btn btn-secondary" style="font-size: 14px;">

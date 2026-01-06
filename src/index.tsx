@@ -10,7 +10,7 @@ import { verifyToken } from "./utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
 import { getLinkFromDB, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
-import { WorldMap } from "./views/world-map";
+import { LeafletMap } from "./views/leaflet-map";
 import { getMapData } from "./utils/map-data";
 import tracking from "./routes/tracking";
 import auth from "./routes/auth";
@@ -267,7 +267,7 @@ app.get("/", async (c) => {
         
         ${mapData && mapData.totalViews > 0 ? html`
           <div class="showcase card">
-            ${WorldMap({ mapData })}
+            ${LeafletMap({ mapData })}
           </div>
         ` : ''}
       `
