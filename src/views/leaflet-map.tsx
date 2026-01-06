@@ -1,3 +1,4 @@
+import { raw } from "hono/html";
 import type { MapData } from "../utils/map-data";
 
 /**
@@ -75,7 +76,7 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
       {/* Leaflet JS and Initialization */}
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script>{`
+      {raw(`<script>
         (function() {
           // Wait for Leaflet to load
           if (typeof L === 'undefined') {
@@ -118,7 +119,7 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
             );
           });
         })();
-      `}</script>
+      </script>`)}
     </div>
   );
 }
