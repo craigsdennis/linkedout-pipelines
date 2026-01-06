@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { waitUntil } from "cloudflare:workers";
 import type { ClickEvent } from "../types";
 import { getCfProperties } from "../utils/helpers";
 import { getLinkFromDB } from "../utils/db";
@@ -40,8 +41,8 @@ tracking.post("/api/track", async (c) => {
     ...getCfProperties(c.req.raw),
   };
 
-  // Write to pipeline
-  await c.env.CLICK_STREAM.send([clickEvent]);
+  // Track click asynchronously (don't block response)
+  waitUntil(c.env.CLICK_STREAM.send([clickEvent]));
 
   return c.body(null, 204);
 });
