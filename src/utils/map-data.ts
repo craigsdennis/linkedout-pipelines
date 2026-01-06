@@ -26,13 +26,9 @@ const CACHE_TTL_SECONDS = 900; // 15 minutes
  * Get location statistics for map visualization
  * Uses KV cache with 15-minute TTL
  */
-export async function getMapData(
-  kvNamespace: KVNamespace,
-  accountId: string,
-  apiToken: string
-): Promise<MapData> {
+export async function getMapData(env: CloudflareBindings): Promise<MapData> {
   // Try to get from cache first
-  const cached = await kvNamespace.get<MapData>(MAP_CACHE_KEY, "json");
+  const cached = await env.MAP_CACHE.get<MapData>(MAP_CACHE_KEY, "json");
   if (cached && cached.lastUpdated) {
     const cacheAge = Date.now() - new Date(cached.lastUpdated).getTime();
     if (cacheAge < CACHE_TTL_SECONDS * 1000) {
@@ -43,10 +39,10 @@ export async function getMapData(
 
   // Cache miss or expired - query R2 SQL
   console.log("Cache miss or expired, querying R2 SQL for map data");
-  const mapData = await queryLocationStats(accountId, apiToken);
+  const mapData = await queryLocationStats(env.ACCOUNT_ID, env.R2_API_TOKEN || "");
 
   // Store in cache with metadata
-  await kvNamespace.put(
+  await env.MAP_CACHE.put(
     MAP_CACHE_KEY,
     JSON.stringify(mapData),
     { expirationTtl: CACHE_TTL_SECONDS }
@@ -153,15 +149,11 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
  * Manually refresh the map data cache
  * Useful for admin actions or scheduled updates
  */
-export async function refreshMapDataCache(
-  kvNamespace: KVNamespace,
-  accountId: string,
-  apiToken: string
-): Promise<MapData> {
+export async function refreshMapDataCache(env: CloudflareBindings): Promise<MapData> {
   console.log("Manually refreshing map data cache");
-  const mapData = await queryLocationStats(accountId, apiToken);
+  const mapData = await queryLocationStats(env.ACCOUNT_ID, env.R2_API_TOKEN || "");
   
-  await kvNamespace.put(
+  await env.MAP_CACHE.put(
     MAP_CACHE_KEY,
     JSON.stringify(mapData),
     { expirationTtl: CACHE_TTL_SECONDS }

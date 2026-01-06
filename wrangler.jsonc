@@ -19,6 +19,10 @@
 		{
 			"binding": "AUTH_TOKENS",
 			"id": "a4d40f72a26f4f6792a6f4bc8038a6b2"
+		},
+		{
+			"binding": "MAP_CACHE",
+			"id": "c44f5527672c42729aa08697c2c2307e"
 		}
 	],
 	"d1_databases": [
