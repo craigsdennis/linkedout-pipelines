@@ -48,8 +48,8 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
           </p>
         </div>
         <div style="font-size: 12px; color: #9ca3af;">
-          <span id="map-last-updated" data-timestamp="{mapData.lastUpdated}">
-            Updated: {new Date(mapData.lastUpdated).toLocaleTimeString()}
+          <span id="map-last-updated" data-timestamp={mapData.lastUpdated}>
+            Updated: Loading...
           </span>
         </div>
       </div>
