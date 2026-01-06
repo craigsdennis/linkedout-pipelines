@@ -4,9 +4,10 @@ import { jsxRenderer } from "hono/jsx-renderer";
 import { getCookie } from "hono/cookie";
 import { html, raw } from "hono/html";
 import QRCode from "qrcode";
-import type { ClickEvent, Link } from "./types";
+import type { ClickEvent } from "./types";
 import { verifyToken } from "./utils/auth";
 import { getCfProperties, getVisitorId } from "./utils/helpers";
+import { getLinkFromDB, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
 import tracking from "./routes/tracking";
 import auth from "./routes/auth";
@@ -48,13 +49,14 @@ app.get(
 app.get("/out/:slug", async (c) => {
   const { slug } = c.req.param();
 
-  // Get link from KV
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  // Get link from D1
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("<h1>404 - Link not found</h1>", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
+  // Get theme
+  const theme = await getThemeFromDB(c.env.DB, link.theme_id);
   const html = await marked(link.content);
 
   // Generate QR code for this page
@@ -75,7 +77,6 @@ app.get("/out/:slug", async (c) => {
     url: c.req.url,
     out: null,
     slug: link.slug,
-    owner_email: link.owner_email,
     visitor_id: getVisitorId(c),
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
@@ -93,10 +94,20 @@ app.get("/out/:slug", async (c) => {
     console.error("Event was:", JSON.stringify(pageViewEvent));
   }
 
+  // Generate theme CSS from variables
+  let themeStyles = '';
+  if (theme) {
+    const cssVars = Object.entries(theme.css_variables)
+      .map(([key, value]) => `${key}: ${value};`)
+      .join('\n    ');
+    
+    themeStyles = `:root {\n    ${cssVars}\n  }\n  ${theme.additional_css || ''}`;
+  }
+
   return c.render(
     <>
       <article dangerouslySetInnerHTML={{ __html: html }} />
-      {link.custom_css && <style>{link.custom_css}</style>}
+      {themeStyles && <style>{themeStyles}</style>}
       <script dangerouslySetInnerHTML={{ __html: `window.qrSlug = '${slug}';` }} />
       <div id="qr-modal" class="qr-modal" onclick="if(event.target === this) hideQR()">
         <button class="qr-modal-close" onclick="hideQR()">×</button>

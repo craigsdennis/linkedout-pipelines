@@ -1,22 +1,24 @@
 import { describe, it, expect } from "vitest";
 import schema from "../schema.json";
 
-describe("Pipeline Schema", () => {
+describe("Pipeline Schema (v6 - no owner_email)", () => {
   it("should have all required fields", () => {
     const fields = schema.fields;
     const fieldNames = fields.map((f: any) => f.name);
     
-    // Core required fields
+    // Core required fields (v6)
     expect(fieldNames).toContain("timestamp");
     expect(fieldNames).toContain("event_type");
     expect(fieldNames).toContain("slug");
-    expect(fieldNames).toContain("owner_email");
+    // v6: owner_email removed
+    expect(fieldNames).not.toContain("owner_email");
     
     // Optional tracking fields
     expect(fieldNames).toContain("url");
     expect(fieldNames).toContain("out");
     expect(fieldNames).toContain("user_agent");
     expect(fieldNames).toContain("referer");
+    expect(fieldNames).toContain("visitor_id");
     
     // Cloudflare properties
     expect(fieldNames).toContain("country");
@@ -36,7 +38,8 @@ describe("Pipeline Schema", () => {
     expect(requiredFields).toContain("timestamp");
     expect(requiredFields).toContain("event_type");
     expect(requiredFields).toContain("slug");
-    expect(requiredFields).toContain("owner_email");
+    // v6: owner_email removed
+    expect(requiredFields).not.toContain("owner_email");
   });
 
   it("should mark CF properties as optional", () => {

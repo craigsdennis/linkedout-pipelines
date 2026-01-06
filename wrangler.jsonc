@@ -17,22 +17,21 @@
 	},
 	"kv_namespaces": [
 		{
-			"binding": "LINKS",
-			"id": "5a77ea007d054a48921f86528e34ee10"
-		},
-		{
-			"binding": "USERS",
-			"id": "bdeb64c984974283acdabf39461c5e12"
-		},
-		{
 			"binding": "AUTH_TOKENS",
 			"id": "a4d40f72a26f4f6792a6f4bc8038a6b2"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "linkedout-db",
+			"database_id": "40b9890c-3dea-4165-aa87-a58355de955e"
 		}
 	],
 	"pipelines": [
 		{
 			"binding": "CLICK_STREAM",
-			"pipeline": "9b56df91a2c44428881c9708883f8083"
+			"pipeline": "f87b847eaee04aef95159ac8aace0219"
 		}
 	],
 	"vars": {

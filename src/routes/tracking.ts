@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import type { ClickEvent, Link } from "../types";
+import type { ClickEvent } from "../types";
 import { getCfProperties } from "../utils/helpers";
+import { getLinkFromDB } from "../utils/db";
 
 const tracking = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -21,12 +22,10 @@ tracking.post("/api/track", async (c) => {
   }
 
   const slug = match[1];
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.body(null, 204);
   }
-
-  const link: Link = JSON.parse(linkStr);
 
   const clickEvent: ClickEvent = {
     timestamp: new Date().toISOString(),
@@ -34,7 +33,6 @@ tracking.post("/api/track", async (c) => {
     out: payload.out,
     link_text: payload.link_text || undefined,
     slug: link.slug,
-    owner_email: link.owner_email,
     visitor_id: payload.visitor_id,
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),

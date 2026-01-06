@@ -6,8 +6,7 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./src/index");
 	}
 	interface Env {
-		LINKS: KVNamespace;
-		USERS: KVNamespace;
+		DB: D1Database;
 		AUTH_TOKENS: KVNamespace;
 		CATALOG_URI: "https://catalog.cloudflarestorage.com/51e28e9a83197a9f12a2e39f9477ba4e/linkedout-data-catalog";
 		WAREHOUSE_NAME: "51e28e9a83197a9f12a2e39f9477ba4e_linkedout-data-catalog";

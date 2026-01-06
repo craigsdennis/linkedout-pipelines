@@ -3,12 +3,11 @@ import type { ClickEvent, Link, User } from "./types";
 
 describe("TypeScript Types", () => {
   describe("ClickEvent", () => {
-    it("should accept valid click event", () => {
+    it("should accept valid click event (v6 - no owner_email)", () => {
       const event: ClickEvent = {
         timestamp: new Date().toISOString(),
         event_type: "click",
         slug: "test-page",
-        owner_email: "test@example.com",
         url: "https://example.com/out/test-page",
         out: "https://google.com",
         user_agent: "Mozilla/5.0",
@@ -32,7 +31,6 @@ describe("TypeScript Types", () => {
         timestamp: new Date().toISOString(),
         event_type: "page_view",
         slug: "test-page",
-        owner_email: "test@example.com",
         url: "https://example.com/out/test-page",
         out: null,
       };
@@ -46,7 +44,6 @@ describe("TypeScript Types", () => {
         timestamp: new Date().toISOString(),
         event_type: "qr_scan",
         slug: "test-page",
-        owner_email: "test@example.com",
         url: "https://example.com/q/test-page",
         out: null,
       };
@@ -56,30 +53,35 @@ describe("TypeScript Types", () => {
   });
 
   describe("Link", () => {
-    it("should accept valid link", () => {
+    it("should accept valid link with theme", () => {
       const link: Link = {
         slug: "my-page",
+        title: null,
         content: "# Hello World\n\n[Link](https://example.com)",
-        owner_email: "test@example.com",
+        theme_id: "default",
+        created_by: "test@example.com",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
       expect(link.slug).toBe("my-page");
       expect(link.content).toContain("Hello World");
+      expect(link.theme_id).toBe("default");
     });
 
-    it("should accept link with optional custom_css", () => {
+    it("should accept link with title", () => {
       const link: Link = {
         slug: "styled-page",
+        title: "My Styled Page",
         content: "# Styled Page",
-        owner_email: "test@example.com",
+        theme_id: "dark",
+        created_by: "test@example.com",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        custom_css: "body { background: blue; }",
       };
 
-      expect(link.custom_css).toBe("body { background: blue; }");
+      expect(link.title).toBe("My Styled Page");
+      expect(link.theme_id).toBe("dark");
     });
   });
 

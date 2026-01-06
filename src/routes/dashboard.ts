@@ -2,11 +2,28 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import { marked } from "marked";
 import QRCode from "qrcode";
-import type { ClickEvent, Link } from "../types";
+import type { ClickEvent } from "../types";
 import { getUser, createUser } from "../utils/auth";
 import { getCfProperties, getVisitorId } from "../utils/helpers";
 import { authMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
+import {
+  getUserLinks,
+  getLinkFromDB,
+  getLinkWithMaintainers,
+  createLinkInDB,
+  updateLinkInDB,
+  deleteLinkFromDB,
+  canUserAccessLink,
+  addMaintainerToDB,
+  removeMaintainerFromDB,
+  getLinkMaintainers,
+  getUserAccessibleSlugs,
+  getAllUsersFromDB,
+  deleteUserFromDB,
+  getPublicThemesFromDB,
+  getThemeFromDB,
+} from "../utils/db";
 
 type Variables = {
   userEmail: string;
@@ -19,18 +36,8 @@ dashboard.get("/dashboard", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const user = await getUser(email);
 
-  // Get user's links
-  const linksList = await c.env.LINKS.list({ prefix: "link:" });
-  const userLinks: Link[] = [];
-  for (const key of linksList.keys) {
-    const linkStr = await c.env.LINKS.get(key.name);
-    if (linkStr) {
-      const link: Link = JSON.parse(linkStr);
-      if (link.owner_email === email) {
-        userLinks.push(link);
-      }
-    }
-  }
+  // Get user's accessible links from D1
+  const userLinks = await getUserLinks(c.env.DB, email);
 
   return c.html(
     DashboardLayout({
@@ -98,15 +105,8 @@ dashboard.get("/admin", authMiddleware, async (c) => {
     );
   }
 
-  // Get all users
-  const usersList = await c.env.USERS.list({ prefix: "user:" });
-  const users: any[] = [];
-  for (const key of usersList.keys) {
-    const userStr = await c.env.USERS.get(key.name);
-    if (userStr) {
-      users.push(JSON.parse(userStr));
-    }
-  }
+  // Get all users from D1
+  const users = await getAllUsersFromDB(c.env.DB);
 
   return c.html(
     DashboardLayout({
@@ -212,7 +212,7 @@ dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
     return c.html("Cannot delete your own account", 400);
   }
 
-  await c.env.USERS.delete(`user:${deleteEmail}`);
+  await deleteUserFromDB(c.env.DB, deleteEmail);
   return c.redirect("/admin");
 });
 
@@ -220,6 +220,9 @@ dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
 dashboard.get("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const user = await getUser(email);
+  
+  // Get available themes
+  const themes = await getPublicThemesFromDB(c.env.DB);
 
   return c.html(
     DashboardLayout({
@@ -252,6 +255,18 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
             A friendly title for your link page (used in analytics)
           </p>
 
+          <label for="theme_id" style="display: block; margin-bottom: 5px; font-weight: 500;">Theme</label>
+          <select id="theme_id" name="theme_id" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 4px;">
+            ${themes.map(theme => html`
+              <option value="${theme.id}" ${theme.id === 'default' ? 'selected' : ''}>
+                ${theme.name} ${theme.description ? `- ${theme.description}` : ''}
+              </option>
+            `)}
+          </select>
+          <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
+            Choose a visual theme for your link page
+          </p>
+
           <label for="content" style="display: block; margin-bottom: 5px; font-weight: 500;">Content (Markdown)</label>
           <textarea 
             id="content" 
@@ -282,8 +297,9 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const formData = await c.req.formData();
   const slug = formData.get("slug") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string) || null;
   const content = formData.get("content") as string;
+  const theme_id = (formData.get("theme_id") as string) || "default";
 
   if (!slug || !content) {
     return c.html("Slug and content are required", 400);
@@ -295,21 +311,23 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
   }
 
   // Check if slug already exists
-  const existing = await c.env.LINKS.get(`link:${slug}`);
+  const existing = await getLinkFromDB(c.env.DB, slug);
   if (existing) {
     return c.html("This slug is already taken. Please choose another.", 400);
   }
 
-  const link: Link = {
-    slug,
-    title: title || undefined,
-    content,
-    owner_email: email,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  await c.env.LINKS.put(`link:${slug}`, JSON.stringify(link));
+  // Create link in D1 (also adds creator as maintainer)
+  await createLinkInDB(
+    c.env.DB,
+    {
+      slug,
+      title,
+      content,
+      theme_id,
+      created_by: email,
+    },
+    email // maintainer email
+  );
 
   return c.redirect(`/links/view/${slug}`);
 });
@@ -319,15 +337,14 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const linkWithMaintainers = await getLinkWithMaintainers(c.env.DB, slug);
+  if (!linkWithMaintainers) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  // Check ownership
-  if (link.owner_email !== email) {
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
     return c.html("Access denied", 403);
   }
 
@@ -344,7 +361,10 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
       dark: '#000000',
       light: '#ffffff'
     }
-});
+  });
+
+  // Get theme info
+  const theme = await getThemeFromDB(c.env.DB, linkWithMaintainers.theme_id);
 
   return c.html(
     DashboardLayout({
@@ -389,9 +409,37 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
 
         <div class="card">
           <h3>Details</h3>
-          <p><strong>Created:</strong> ${new Date(link.created_at).toLocaleString()}</p>
-          <p><strong>Last Updated:</strong> ${new Date(link.updated_at).toLocaleString()}</p>
-          <p><strong>Owner:</strong> ${link.owner_email}</p>
+          <p><strong>Created:</strong> ${new Date(linkWithMaintainers.created_at).toLocaleString()}</p>
+          <p><strong>Last Updated:</strong> ${new Date(linkWithMaintainers.updated_at).toLocaleString()}</p>
+          <p><strong>Creator:</strong> ${linkWithMaintainers.created_by}</p>
+          <p><strong>Theme:</strong> ${theme?.name || 'default'}</p>
+        </div>
+
+        <div class="card">
+          <h3>Maintainers (${linkWithMaintainers.maintainers.length})</h3>
+          <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+            Maintainers can edit, delete, and manage this link page
+          </p>
+          <ul style="list-style: none; padding: 0;">
+            ${linkWithMaintainers.maintainers.map(maintainerEmail => html`
+              <li style="padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                <span>${maintainerEmail}</span>
+                ${linkWithMaintainers.maintainers.length > 1 ? html`
+                  <form method="POST" action="/links/${slug}/remove-maintainer" style="display: inline;">
+                    <input type="hidden" name="email" value="${maintainerEmail}" />
+                    <button type="submit" class="btn btn-secondary" style="padding: 5px 10px; font-size: 13px;" onclick="return confirm('Remove ${maintainerEmail} as maintainer?')">Remove</button>
+                  </form>
+                ` : html`
+                  <span style="color: #999; font-size: 13px;">(Last maintainer)</span>
+                `}
+              </li>
+            `)}
+          </ul>
+          
+          <form method="POST" action="/links/${slug}/add-maintainer" style="margin-top: 20px; display: flex; gap: 10px;">
+            <input type="email" name="email" placeholder="user@example.com" required style="flex: 1;" />
+            <button type="submit">Add Maintainer</button>
+          </form>
         </div>
 
         <div class="card">
@@ -408,23 +456,86 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
   );
 });
 
+// Add maintainer
+dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
+  const { slug } = c.req.param();
+  const email = c.get("userEmail");
+
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
+    return c.html("Access denied", 403);
+  }
+
+  const formData = await c.req.formData();
+  const newMaintainerEmail = formData.get("email") as string;
+
+  if (!newMaintainerEmail) {
+    return c.html("Email required", 400);
+  }
+
+  // Check if user exists
+  const newUser = await getUser(newMaintainerEmail);
+  if (!newUser) {
+    return c.html("User not found. They must be registered first.", 400);
+  }
+
+  // Check if already a maintainer
+  const existingMaintainer = await canUserAccessLink(c.env.DB, slug, newMaintainerEmail);
+  if (existingMaintainer) {
+    return c.html("User is already a maintainer", 400);
+  }
+
+  await addMaintainerToDB(c.env.DB, slug, newMaintainerEmail, email);
+  return c.redirect(`/links/view/${slug}`);
+});
+
+// Remove maintainer
+dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
+  const { slug } = c.req.param();
+  const email = c.get("userEmail");
+
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
+    return c.html("Access denied", 403);
+  }
+
+  const formData = await c.req.formData();
+  const removeMaintainerEmail = formData.get("email") as string;
+
+  if (!removeMaintainerEmail) {
+    return c.html("Email required", 400);
+  }
+
+  // Check if this is the last maintainer
+  const maintainers = await getLinkMaintainers(c.env.DB, slug);
+  if (maintainers.length <= 1) {
+    return c.html("Cannot remove the last maintainer", 400);
+  }
+
+  await removeMaintainerFromDB(c.env.DB, slug, removeMaintainerEmail);
+  return c.redirect(`/links/view/${slug}`);
+});
+
 // Edit link
 dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  if (link.owner_email !== email) {
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
     return c.html("Access denied", 403);
   }
 
   const user = await getUser(email);
+  const themes = await getPublicThemesFromDB(c.env.DB);
 
   return c.html(
     DashboardLayout({
@@ -443,7 +554,8 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           margin-bottom: 5px;
           font-weight: 500;
         }
-        input[type="text"] {
+        input[type="text"],
+        select {
           width: 100%;
           padding: 10px;
           margin-bottom: 20px;
@@ -478,6 +590,15 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           <label for="title">Page Title (Optional)</label>
           <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your link page">
           
+          <label for="theme_id">Theme</label>
+          <select id="theme_id" name="theme_id">
+            ${themes.map(theme => html`
+              <option value="${theme.id}" ${theme.id === link.theme_id ? 'selected' : ''}>
+                ${theme.name} ${theme.description ? `- ${theme.description}` : ''}
+              </option>
+            `)}
+          </select>
+          
           <label for="content">Content (Markdown)</label>
           <textarea id="content" name="content" required>${link.content}</textarea>
           
@@ -494,30 +615,31 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  if (link.owner_email !== email) {
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
     return c.html("Access denied", 403);
   }
 
   const formData = await c.req.formData();
   const content = formData.get("content") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string) || null;
+  const theme_id = formData.get("theme_id") as string;
 
   if (!content) {
     return c.html("Content is required", 400);
   }
 
-  link.content = content;
-  link.title = title || undefined;
-  link.updated_at = new Date().toISOString();
-
-  await c.env.LINKS.put(`link:${slug}`, JSON.stringify(link));
+  await updateLinkInDB(c.env.DB, slug, {
+    content,
+    title,
+    theme_id,
+  });
 
   return c.redirect(`/links/view/${slug}`);
 });
@@ -527,18 +649,18 @@ dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  if (link.owner_email !== email) {
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
     return c.html("Access denied", 403);
   }
 
-  await c.env.LINKS.delete(`link:${slug}`);
+  await deleteLinkFromDB(c.env.DB, slug);
 
   return c.redirect("/dashboard");
 });
@@ -548,14 +670,14 @@ dashboard.get("/qr/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  if (link.owner_email !== email) {
+  // Check if user has access
+  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  if (!hasAccess) {
     return c.html("Access denied", 403);
   }
 
@@ -610,20 +732,17 @@ dashboard.get("/qr/:slug", authMiddleware, async (c) => {
 dashboard.get("/q/:slug", async (c) => {
   const { slug } = c.req.param();
 
-  const linkStr = await c.env.LINKS.get(`link:${slug}`);
-  if (!linkStr) {
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
     return c.html("Link not found", 404);
   }
 
-  const link: Link = JSON.parse(linkStr);
-
-  // Track QR scan
+  // Track QR scan (NO owner_email in v6)
   const qrScanEvent: ClickEvent = {
     timestamp: new Date().toISOString(),
     url: c.req.url,
     out: null,
     slug: link.slug,
-    owner_email: link.owner_email,
     visitor_id: getVisitorId(c),
     user_agent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
@@ -645,15 +764,12 @@ dashboard.get("/q/:slug", async (c) => {
   return c.redirect(`/out/${slug}`);
 });
 
-// Debug endpoint - test pipeline send
-
-// Analytics dashboard
+// Analytics dashboard  
 dashboard.get("/analytics", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const slugFilter = c.req.query("slug");
 
   // Query R2 SQL for analytics data
-  // Pipeline with schema definition creates proper Iceberg columns
   let stats = {
     totalViews: 0,
     totalClicks: 0,
@@ -668,9 +784,6 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
   let errorMessage: string | null = null;
 
   try {
-    // Debug: Log user info
-    console.log("Analytics page accessed by:", email, "with slug filter:", slugFilter || "none");
-    
     // Validate required environment variables
     if (!c.env.R2_API_TOKEN) {
       console.error("R2_API_TOKEN not configured - cannot query analytics");
@@ -682,22 +795,39 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       throw new Error("Analytics not configured");
     }
 
-    // Build WHERE clause based on filter
-    // Note: Can't use string interpolation directly in WHERE due to SQL injection
-    // For demo purposes, using it here but production should use parameterized queries
-    const whereConditions = [`owner_email = '${email}'`];
+    // Build WHERE clause based on slug filter or user's accessible slugs
+    let whereClause: string;
+    
     if (slugFilter) {
-      whereConditions.push(`slug = '${slugFilter}'`);
+      // Single slug filter - check if user has access
+      const hasAccess = await canUserAccessLink(c.env.DB, slugFilter, email);
+      if (!hasAccess) {
+        throw new Error("Access denied to this link");
+      }
+      whereClause = `WHERE slug = '${slugFilter}'`;
+    } else {
+      // All user's slugs - get from D1
+      const userSlugs = await getUserAccessibleSlugs(c.env.DB, email);
+      console.log("User accessible slugs:", userSlugs);
+      
+      if (userSlugs.length === 0) {
+        // No links yet - return empty results
+        whereClause = "WHERE slug = 'nonexistent'"; // Will return no results
+      } else {
+        // Build slug IN (...) clause
+        const slugList = userSlugs.map(s => `'${s}'`).join(', ');
+        whereClause = `WHERE slug IN (${slugList})`;
+      }
     }
-    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
-    // Query for aggregate stats
-    // Note: R2 SQL doesn't support AS aliases, so we access count(*) directly
+    console.log("Analytics WHERE clause:", whereClause);
+
+    // Query for aggregate stats (using v5 table for now - will update to v6)
     const statsQuery = `
       SELECT 
         event_type,
         COUNT(*)
-      FROM default.click_events_v5
+      FROM default.click_events_v6
       ${whereClause}
       GROUP BY event_type
     `;
@@ -719,22 +849,16 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         result?: { rows?: Array<Record<string, any>> },
         errors?: Array<any>
       };
-      // Debug logging
       console.log("Stats query response:", JSON.stringify(statsData));
-      console.log("Stats query was:", statsQuery);
       
-      // Check for query errors
       if (statsData.errors && statsData.errors.length > 0) {
         console.error("R2 SQL stats query errors:", JSON.stringify(statsData.errors));
-        console.error("Query was:", statsQuery);
       }
       
       const rows = statsData.result?.rows;
       if (rows && rows.length > 0) {
         hasData = true;
-        console.log("hasData set to true, rows length:", rows.length);
         rows.forEach((row: any) => {
-          // R2 SQL returns count(*) without alias support
           const count = row['count(*)'] || 0;
           if (row.event_type === "page_view") stats.totalViews = count;
           if (row.event_type === "click") stats.totalClicks = count;
@@ -750,11 +874,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
     } else {
       const errorText = await statsResponse.text();
       console.error("R2 SQL stats query failed:", statsResponse.status, errorText);
-      console.error("Query was:", statsQuery);
     }
 
     // Query for recent events
-    // Note: R2 SQL only allows ORDER BY on partition key columns (__ingest_ts)
     const eventsQuery = `
       SELECT 
         timestamp,
@@ -763,7 +885,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         out,
         link_text,
         user_agent
-      FROM default.click_events_v5
+      FROM default.click_events_v6
       ${whereClause}
       ORDER BY __ingest_ts DESC
       LIMIT 20
@@ -787,34 +909,18 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         errors?: Array<any>
       };
       
-      // Debug logging
-      console.log("Events query response:", JSON.stringify(eventsData));
-      console.log("Events query was:", eventsQuery);
-      
-      // Check for query errors
-      if (eventsData.errors && eventsData.errors.length > 0) {
-        console.error("R2 SQL events query errors:", JSON.stringify(eventsData.errors));
-        console.error("Query was:", eventsQuery);
-      }
-      
       const rows = eventsData.result?.rows;
       if (rows && rows.length > 0) {
         recentEvents = rows;
-        console.log("recentEvents set, length:", rows.length);
       }
-    } else {
-      const errorText = await eventsResponse.text();
-      console.error("R2 SQL events query failed:", eventsResponse.status, errorText);
-      console.error("Query was:", eventsQuery);
     }
 
     // Query for destination URL breakdown (clicks only)
-    // Note: R2 SQL has limitations on ORDER BY, we'll sort in application code
     const destinationQuery = `
       SELECT 
         out,
         COUNT(*)
-      FROM default.click_events_v5
+      FROM default.click_events_v6
       ${whereClause}
         AND event_type = 'click'
         AND out IS NOT NULL
@@ -840,9 +946,6 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         errors?: Array<any>
       };
       
-      console.log("Destination query response:", JSON.stringify(destinationData));
-      console.log("Destination query was:", destinationQuery);
-      
       const rows = destinationData.result?.rows;
       if (rows && rows.length > 0) {
         destinationBreakdown = rows
@@ -852,23 +955,16 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           }))
           .sort((a, b) => b.click_count - a.click_count)
           .slice(0, 20);
-        console.log("Destination breakdown set, length:", destinationBreakdown.length);
-      } else {
-        console.log("No destination data found in response");
       }
-    } else {
-      const errorText = await destinationResponse.text();
-      console.error("R2 SQL destination query failed:", destinationResponse.status, errorText);
-      console.error("Query was:", destinationQuery);
     }
 
-    // Query for link text breakdown (what text was clicked)
+    // Query for link text breakdown
     const linkTextQuery = `
       SELECT 
         link_text,
         out,
         COUNT(*)
-      FROM default.click_events_v5
+      FROM default.click_events_v6
       ${whereClause}
         AND event_type = 'click'
         AND link_text IS NOT NULL
@@ -895,8 +991,6 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         errors?: Array<any>
       };
       
-      console.log("Link text query response:", JSON.stringify(linkTextData));
-      
       const rows = linkTextData.result?.rows;
       if (rows && rows.length > 0) {
         linkTextBreakdown = rows
@@ -907,11 +1001,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           }))
           .sort((a, b) => b.click_count - a.click_count)
           .slice(0, 20);
-        console.log("Link text breakdown set, length:", linkTextBreakdown.length);
       }
-    } else {
-      const errorText = await linkTextResponse.text();
-      console.error("R2 SQL link text query failed:", linkTextResponse.status, errorText);
     }
 
     // Query for slug breakdown (only when not filtering by slug)
@@ -920,8 +1010,8 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         SELECT 
           slug,
           COUNT(*)
-        FROM default.click_events_v5
-        WHERE owner_email = '${email}'
+        FROM default.click_events_v6
+        ${whereClause}
           AND event_type = 'click'
         GROUP BY slug
         LIMIT 100
@@ -945,26 +1035,15 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           errors?: Array<any>
         };
         
-        console.log("Slug query response:", JSON.stringify(slugData));
-        
         const rows = slugData.result?.rows;
         if (rows && rows.length > 0) {
-          // Fetch link titles from KV for each slug
+          // Fetch link titles from D1 for each slug
           const slugsWithTitles = await Promise.all(
             rows.map(async (row: any) => {
-              const linkStr = await c.env.LINKS.get(`link:${row.slug}`);
-              let title: string | null = null;
-              if (linkStr) {
-                try {
-                  const link = JSON.parse(linkStr);
-                  title = link.title || null;
-                } catch (e) {
-                  console.error(`Failed to parse link for slug ${row.slug}:`, e);
-                }
-              }
+              const link = await getLinkFromDB(c.env.DB, row.slug);
               return {
                 slug: row.slug,
-                title: title,
+                title: link?.title || null,
                 click_count: row['count(*)'] || 0
               };
             })
@@ -973,19 +1052,11 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           slugBreakdown = slugsWithTitles
             .sort((a, b) => b.click_count - a.click_count)
             .slice(0, 20);
-          console.log("Slug breakdown set, length:", slugBreakdown.length);
         }
-      } else {
-        const errorText = await slugResponse.text();
-        console.error("R2 SQL slug query failed:", slugResponse.status, errorText);
       }
     }
   } catch (error) {
     console.error("Error querying R2 SQL - exception thrown:", error);
-    console.error("Error details:", {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
     errorMessage = error instanceof Error ? error.message : "Unknown error querying analytics";
   }
 
@@ -1042,13 +1113,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         ${errorMessage ? html`
           <div class="warning" style="background: #ffebee; border-color: #f44336;">
             <strong>❌ Error Loading Analytics:</strong> ${errorMessage}
-            <p>Check the Worker logs for more details. Common issues:</p>
-            <ul>
-              <li>R2_API_TOKEN secret not configured</li>
-              <li>ACCOUNT_ID environment variable missing</li>
-              <li>R2 SQL API rate limits or network issues</li>
-              <li>SQL query syntax errors (check console logs)</li>
-            </ul>
+            <p>Check the Worker logs for more details.</p>
           </div>
         ` : !hasData ? html`
           <div class="warning">
@@ -1068,6 +1133,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           <div class="card">
             <h2>Analytics for: ${slugFilter}</h2>
             <p>Filtering data for this link page only.</p>
+            <a href="/analytics" class="btn btn-secondary">View All Links</a>
           </div>
         ` : html`
           <div class="card">
@@ -1124,7 +1190,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                     </td>
                     <td style="text-align: right; font-weight: 600;">${item.click_count}</td>
                     <td style="text-align: center;">
-                      <a href="/analytics?slug=${item.slug}" style="display: inline-block; padding: 6px 12px; background: #f5f5f5; color: #333; text-decoration: none; border-radius: 4px; font-size: 13px; border: 1px solid #ddd;" title="View detailed analytics for this page">
+                      <a href="/analytics?slug=${item.slug}" style="display: inline-block; padding: 6px 12px; background: #f5f5f5; color: #333; text-decoration: none; border-radius: 4px; font-size: 13px; border: 1px solid #ddd;">
                         📊 Filter
                       </a>
                     </td>
@@ -1240,24 +1306,13 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         ` : html``}
 
         <div class="card">
-          <h3>Example R2 SQL Query</h3>
-          <p>Once the pipeline is configured, data will be queryable with SQL like this:</p>
-          <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>SELECT 
-  event_type,
-  COUNT(*) as count,
-  DATE(timestamp) as date
-FROM click_events
-WHERE owner_email = '${email}'
-  ${slugFilter ? `AND slug = '${slugFilter}'` : ''}
-GROUP BY event_type, date
-ORDER BY date DESC
-LIMIT 30</code></pre>
+          <h3>Pipeline Info</h3>
+          <p style="color: #666;">Currently querying: <code>default.click_events_v6</code></p>
+          <p style="color: #999; font-size: 14px;">Note: After Pipeline v6 migration, this will query <code>default.click_events_v6</code> which no longer has owner_email field.</p>
         </div>
       `
     })
   );
 });
-
-// Catch-all for static assets and 404 - MUST BE LAST
 
 export default dashboard;

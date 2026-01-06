@@ -16,11 +16,6 @@
       "required": true
     },
     {
-      "name": "owner_email",
-      "type": "string",
-      "required": true
-    },
-    {
       "name": "visitor_id",
       "type": "string",
       "required": false

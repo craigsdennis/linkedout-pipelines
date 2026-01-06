@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { AuthToken, User } from "../types";
+import { getUserFromDB, createUserInDB } from "./db";
 
 export async function generateToken(): Promise<string> {
   const array = new Uint8Array(32);
@@ -18,7 +19,7 @@ export async function createAuthToken(email: string): Promise<string> {
     expires_at: expiresAt.toISOString(),
   };
 
-  // Store token -> email mapping
+  // Store token -> email mapping (still in KV)
   await env.AUTH_TOKENS.put(token, JSON.stringify(authToken), {
     expirationTtl: 60 * 60 * 24, // 24 hours
   });
@@ -42,23 +43,14 @@ export async function verifyToken(token: string): Promise<string | null> {
 }
 
 export async function getUser(email: string): Promise<User | null> {
-  const userStr = await env.USERS.get(`user:${email}`);
-  if (!userStr) return null;
-  return JSON.parse(userStr);
+  return await getUserFromDB(env.DB, email);
 }
 
 export async function createUser(
   email: string,
   isAdmin: boolean
 ): Promise<User> {
-  const user: User = {
-    email,
-    created_at: new Date().toISOString(),
-    is_admin: isAdmin,
-  };
-
-  await env.USERS.put(`user:${email}`, JSON.stringify(user));
-  return user;
+  return await createUserInDB(env.DB, email, isAdmin);
 }
 
 export async function isUserAuthorized(email: string): Promise<boolean> {

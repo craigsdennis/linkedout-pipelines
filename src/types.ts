@@ -1,11 +1,10 @@
-// Click tracking event that goes into the pipeline
+// Click tracking event that goes into the pipeline (v6 - no owner_email)
 export interface ClickEvent {
   timestamp: string;
   url: string;
   out: string | null;
   link_text?: string; // the anchor text that was clicked
   slug: string;
-  owner_email: string;
   visitor_id?: string;
   user_agent?: string;
   referer?: string;
@@ -21,16 +20,40 @@ export interface ClickEvent {
   [key: string]: any; // Index signature for Pipeline compatibility
 }
 
-// Link stored in KV
+// Link stored in D1
 export interface Link {
   slug: string;
-  title?: string; // optional title for the link page
-  content: string; // markdown content
-  owner_email: string;
+  title: string | null;
+  content: string;
+  theme_id: string;
+  created_by: string;
   created_at: string;
   updated_at: string;
-  custom_css?: string;
-  qr_code?: string;
+}
+
+// Link with maintainers list
+export interface LinkWithMaintainers extends Link {
+  maintainers: string[];
+}
+
+// Link maintainer junction table record
+export interface LinkMaintainer {
+  link_slug: string;
+  user_email: string;
+  added_at: string;
+  added_by: string | null;
+}
+
+// Theme stored in D1
+export interface Theme {
+  id: string;
+  name: string;
+  description: string | null;
+  css_variables: Record<string, string>; // Parsed JSON object
+  additional_css: string | null;
+  created_by: string | null;
+  is_public: boolean;
+  created_at: string;
 }
 
 // User stored in KV

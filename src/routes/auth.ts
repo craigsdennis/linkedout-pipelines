@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { html } from "hono/html";
-import { verifyToken, createAuthToken, isUserAuthorized } from "../utils/auth";
+import { verifyToken, createAuthToken, isUserAuthorized, getUser, createUser } from "../utils/auth";
 import { AuthLayout, BaseLayout } from "../views/layouts";
 
 type Variables = {
@@ -108,6 +108,13 @@ auth.get("/auth/verify", async (c) => {
         `
       }), 401
     );
+  }
+
+  // Ensure user exists in D1 database (create if first login)
+  let user = await getUser(email);
+  if (!user) {
+    console.log(`Creating new user in D1: ${email}`);
+    user = await createUser(email, false); // Not admin by default
   }
 
   // Set cookie
