@@ -18,6 +18,10 @@ export const BaseLayout = (props: {
   </head>
   <body class="base-layout">
     ${props.children}
+    <footer class="site-footer">
+      <p class="footer-line">Built with 🧡 using <a href="https://developers.cloudflare.com/pipelines/" target="_blank" rel="noopener">Cloudflare Pipelines</a></p>
+      <p class="footer-line"><a href="https://github.com/craigsdennis" target="_blank" rel="noopener">👀 the code</a></p>
+    </footer>
   </body>
 </html>`;
 };
@@ -54,6 +58,10 @@ export const DashboardLayout = (props: {
     </div>
     ${props.children}
     ${props.scripts?.map(src => html`<script src="${src}"></script>`)}
+    <footer class="site-footer">
+      <p class="footer-line">Built with 🧡 using <a href="https://developers.cloudflare.com/pipelines/" target="_blank" rel="noopener">Cloudflare Pipelines</a></p>
+      <p class="footer-line"><a href="https://github.com/craigsdennis" target="_blank" rel="noopener">👀 the code</a></p>
+    </footer>
   </body>
 </html>`;
 };
@@ -74,6 +82,10 @@ export const AuthLayout = (props: {
   </head>
   <body class="auth-layout">
     ${props.children}
+    <footer class="site-footer">
+      <p class="footer-line">Built with 🧡 using <a href="https://developers.cloudflare.com/pipelines/" target="_blank" rel="noopener">Cloudflare Pipelines</a></p>
+      <p class="footer-line"><a href="https://github.com/craigsdennis" target="_blank" rel="noopener">👀 the code</a></p>
+    </footer>
   </body>
 </html>`;
 };
