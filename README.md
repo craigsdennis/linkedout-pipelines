@@ -34,7 +34,7 @@ LinkedOut allows educators to share links after talks/presentations and track en
                  v
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Cloudflare Worker                          │
-│  - Serves link pages from KV                                    │
+│  - Serves outies from KV                                    │
 │  - Receives tracking events via sendBeacon                      │
 │  - Writes events to Pipeline stream                             │
 └────────────────┬────────────────────────────────────────────────┘
@@ -135,14 +135,14 @@ npm run cf-typegen  # Regenerate TypeScript types
 ### For Educators
 
 - **Magic Link Authentication** - No passwords, email-based login
-- **Link Management** - Create/edit markdown link pages
+- **Link Management** - Create/edit markdown outies
 - **QR Code Generation** - Automatic QR codes for each page
 - **Analytics Dashboard** - View engagement metrics
 - **Multi-user Support** - Add other educators via admin panel
 
 ### For Attendees
 
-- **Clean Link Pages** - Markdown-formatted content
+- **Clean Outies** - Markdown-formatted content
 - **Click Tracking** - Automatic tracking (privacy-focused)
 - **Mobile Friendly** - Works great on phones
 
@@ -189,8 +189,8 @@ This project uses a **defined schema** (`schema.json`) when creating the Pipelin
 **Schema columns**:
 - `timestamp` (STRING) - Event timestamp
 - `event_type` (STRING) - Type of event (page_view, click, qr_scan)
-- `slug` (STRING) - Link page slug
-- `owner_email` (STRING) - Link page owner
+- `slug` (STRING) - Outie slug
+- `owner_email` (STRING) - Outie owner
 - `url` (STRING) - Page URL
 - `out` (STRING) - Clicked link destination
 - `user_agent` (STRING) - Browser user agent

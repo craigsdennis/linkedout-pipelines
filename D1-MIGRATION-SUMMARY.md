@@ -123,7 +123,7 @@ Each theme has 10 CSS variables:
 ### Use Cases
 
 - **Conference Speaker**: Share maintenance with co-presenters
-- **Team Links**: Multiple team members can update shared link pages
+- **Team Links**: Multiple team members can update shared outies
 - **Backup**: Ensure links aren't orphaned if one person leaves
 
 ## Theme System

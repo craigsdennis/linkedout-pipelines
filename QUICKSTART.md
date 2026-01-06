@@ -36,7 +36,7 @@ The app will be available at http://localhost:8787
 4. You'll see a magic link on screen (in production, this would be emailed)
 5. Click the magic link to login
 
-### Create a Link Page
+### Create a Outie
 
 1. From the dashboard, click "Create New Link"
 2. Enter a slug (e.g., `my-first-talk`)
@@ -50,7 +50,7 @@ The app will be available at http://localhost:8787
    - [Hono Framework](https://hono.dev)
    - [TypeScript](https://typescriptlang.org)
    ```
-4. Click "Create Link Page"
+4. Click "Create Outie"
 
 ### View Your Link
 
@@ -61,7 +61,7 @@ The app will be available at http://localhost:8787
 ### Generate QR Code
 
 1. From the link details page, click "View QR Code"
-2. You'll see a QR code that redirects to your link page
+2. You'll see a QR code that redirects to your outie
 3. Scanning the QR code will track it separately as a "qr_scan" event
 
 ### Add Other Users (Admin Only)
@@ -94,7 +94,7 @@ To enable analytics, you need to complete the pipeline sink configuration. See S
 
 You can use the app fully without the pipeline configured - the only difference is:
 
-- ✅ Link pages work
+- ✅ Outies work
 - ✅ Authentication works  
 - ✅ QR codes work
 - ✅ Click tracking events are written to the stream
@@ -108,7 +108,7 @@ Once the pipeline sink is configured, events will be queryable via R2 SQL!
 
 Make sure you added your email as a user in step 2.
 
-### Link page shows 404
+### Outie shows 404
 
 Check that:
 1. The slug matches what you created (lowercase, no spaces)

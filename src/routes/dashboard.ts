@@ -46,11 +46,11 @@ dashboard.get("/dashboard", authMiddleware, async (c) => {
       isAdmin: user?.is_admin,
       children: html`
         <div class="card">
-          <h2>Your Link Pages</h2>
-          <a href="/links/create" class="btn">Create New Link Page</a>
+          <h2>Your Outies</h2>
+          <a href="/links/create" class="btn">Create New Outie</a>
           
           ${userLinks.length === 0 
-            ? html`<p>No link pages yet. Create your first one!</p>`
+            ? html`<p>No outies yet. Create your first one!</p>`
             : html`
               <ul style="list-style: none; padding: 0;">
                 ${userLinks.map(link => html`
@@ -240,7 +240,7 @@ dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
   return c.redirect("/admin");
 });
 
-// Create link page
+// Create outie
 dashboard.get("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
   const user = await getUser(email);
@@ -250,7 +250,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
 
   return c.html(
     DashboardLayout({
-      title: "Create Link Page",
+      title: "Create Outie",
       email: email,
       isAdmin: user?.is_admin,
       children: html`
@@ -280,7 +280,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
             placeholder="My Conference Talk 2025"
           />
           <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
-            A friendly title for your link page (used in analytics)
+            A friendly title for your outie (used in analytics)
           </p>
 
           <label for="theme_id" style="display: block; margin-bottom: 5px; font-weight: 500;">Theme</label>
@@ -292,7 +292,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
             `)}
           </select>
           <p style="font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px;">
-            Choose a visual theme for your link page
+            Choose a visual theme for your outie
           </p>
 
           <!-- Custom Styling Section -->
@@ -379,7 +379,7 @@ Here are the links from my talk:
             </p>
           </div>
 
-          <button type="submit" style="margin-top: 20px;">Create Link Page</button>
+          <button type="submit" style="margin-top: 20px;">Create Outie</button>
         </form>
       `,
       scripts: ['/theme-customizer.js']
@@ -471,7 +471,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
       scripts: ['/qr.js'],
       children: html`
         <script>window.qrSlug = '${slug}';</script>
-        <h2>Link Page: ${slug}</h2>
+        <h2>Outie: ${slug}</h2>
 
         <div class="card">
           <h3>Public URL</h3>
@@ -515,7 +515,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
         <div class="card">
           <h3>Maintainers (${linkWithMaintainers.maintainers.length})</h3>
           <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
-            Maintainers can edit, delete, and manage this link page
+            Maintainers can edit, delete, and manage this outie
           </p>
           <ul style="list-style: none; padding: 0;">
             ${linkWithMaintainers.maintainers.map(maintainerEmail => html`
@@ -544,7 +544,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
           <div class="actions">
             <a href="/links/edit/${slug}" class="btn">Edit Content</a>
             <form method="POST" action="/links/delete/${slug}" style="display: inline;">
-              <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete this link page?')">Delete</button>
+              <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete this outie?')">Delete</button>
             </form>
           </div>
         </div>
@@ -689,7 +689,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
         <h2>Edit: ${slug}</h2>
         <form method="POST" action="/links/edit/${slug}">
           <label for="title">Page Title (Optional)</label>
-          <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your link page">
+          <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your outie">
           
           <label for="theme_id">Theme</label>
           <select id="theme_id" name="theme_id">
@@ -918,7 +918,7 @@ dashboard.get("/q/:slug", async (c) => {
     console.error("Event was:", JSON.stringify(qrScanEvent));
   }
 
-  // Redirect to the actual link page
+  // Redirect to the actual outie
   return c.redirect(`/out/${slug}`);
 });
 
@@ -1278,8 +1278,8 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
             <strong>⚠️ No Data Yet:</strong> The pipeline is configured but hasn't collected any events yet.
             <p>To generate data:</p>
             <ul>
-              <li>Create a link page from your dashboard</li>
-              <li>Visit the link page (/out/your-slug)</li>
+              <li>Create an outie from your dashboard</li>
+              <li>Visit the outie (/out/your-slug)</li>
               <li>Click on some links in the page</li>
               <li>Wait a few minutes for data to be batched and written to R2</li>
             </ul>
@@ -1290,13 +1290,13 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         ${slugFilter ? html`
           <div class="card">
             <h2>Analytics for: ${slugFilter}</h2>
-            <p>Filtering data for this link page only.</p>
+            <p>Filtering data for this outie only.</p>
             <a href="/analytics" class="btn btn-secondary">View All Links</a>
           </div>
         ` : html`
           <div class="card">
             <h2>All Your Links</h2>
-            <p>Showing aggregate data across all your link pages.</p>
+            <p>Showing aggregate data across all your outies.</p>
           </div>
         `}
 
@@ -1321,7 +1321,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
 
         ${!slugFilter && slugBreakdown.length > 0 ? html`
           <div class="card">
-            <h3>Clicks by Link Page</h3>
+            <h3>Clicks by Outie</h3>
             <table>
               <thead>
                 <tr>
@@ -1363,7 +1363,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           <div class="card">
             <h3>Top Clicked Links</h3>
             <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-              Most popular destination URLs from your link pages
+              Most popular destination URLs from your outies
             </p>
             <table>
               <thead>

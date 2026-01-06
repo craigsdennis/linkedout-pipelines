@@ -84,7 +84,7 @@ Add a custom domain in the Cloudflare dashboard:
 
 ## Understanding the Data Flow
 
-### When a user visits your link page:
+### When a user visits your outie:
 
 ```
 1. User visits /out/test-talk
@@ -144,7 +144,7 @@ SELECT * FROM click_events
   timestamp: string,      // ISO 8601 timestamp
   url: string,           // Full URL of the page
   out: string | null,    // Clicked link (null for page_view)
-  slug: string,          // Link page slug
+  slug: string,          // Outie slug
   owner_email: string,   // Creator's email
   user_agent: string,    // Browser user agent
   referer: string,       // HTTP referer
@@ -254,7 +254,7 @@ npx wrangler r2 object list linkedout-data-catalog --prefix data/
 
 ### Analytics shows "No data yet"
 
-- Make sure you've visited your link page and clicked some links
+- Make sure you've visited your outie and clicked some links
 - Wait at least 5 minutes for the batch to complete
 - Check that the R2 API token secret is set correctly
 
@@ -280,7 +280,7 @@ This project demonstrates:
 ## Next Steps
 
 - Add more users via the admin panel
-- Create multiple link pages for different talks
+- Create multiple outies for different talks
 - Share the links and QR codes
 - Monitor analytics to see engagement
 - Experiment with custom SQL queries
