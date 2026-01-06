@@ -12,6 +12,7 @@ export const BaseLayout = (props: {
     <title>${props.title} - LinkedOut</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="stylesheet" href="/styles.css">
     ${props.styles ? html`<style>${props.styles}</style>` : ''}
   </head>
@@ -36,6 +37,7 @@ export const DashboardLayout = (props: {
     <title>${props.title} - LinkedOut</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="stylesheet" href="/styles.css">
     ${props.styles ? html`<style>${props.styles}</style>` : ''}
   </head>
@@ -67,6 +69,7 @@ export const AuthLayout = (props: {
     <title>${props.title} - LinkedOut</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body class="auth-layout">
