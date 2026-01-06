@@ -8,7 +8,7 @@ import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helper
 import { authMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import { WorldMap } from "../views/world-map";
-import { getMapData } from "../utils/map-data";
+import { getMapData, refreshMapDataCache } from "../utils/map-data";
 import {
   getUserLinks,
   getLinkFromDB,
@@ -132,6 +132,13 @@ dashboard.get("/admin", authMiddleware, async (c) => {
         ${mapData ? html`
           <div class="card">
             ${WorldMap({ mapData })}
+            <div style="margin-top: 20px; text-align: right;">
+              <form method="POST" action="/admin/clear-map-cache" style="display: inline;">
+                <button type="submit" class="btn btn-secondary" style="font-size: 14px;">
+                  🔄 Refresh Map Data
+                </button>
+              </form>
+            </div>
           </div>
         ` : ''}
         
@@ -209,6 +216,30 @@ dashboard.post("/admin/add-user", authMiddleware, async (c) => {
   }
 
   await createUser(newEmail, isAdmin);
+  return c.redirect("/admin");
+});
+
+// Clear map cache (admin only)
+dashboard.post("/admin/clear-map-cache", authMiddleware, async (c) => {
+  const email = c.get("userEmail");
+  const user = await getUser(email);
+
+  if (!user?.is_admin) {
+    return c.html("Access denied", 403);
+  }
+
+  try {
+    console.log("Admin clearing map cache:", email);
+    await refreshMapDataCache(
+      c.env.AUTH_TOKENS,
+      c.env.ACCOUNT_ID,
+      c.env.R2_API_TOKEN || ""
+    );
+    console.log("Map cache cleared successfully");
+  } catch (error) {
+    console.error("Failed to refresh map cache:", error);
+  }
+
   return c.redirect("/admin");
 });
 

@@ -83,6 +83,7 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
       ORDER BY count DESC
     `;
 
+    console.log("Querying R2 SQL for map data...");
     const response = await fetch(
       `https://api.sql.cloudflarestorage.com/api/v1/accounts/${accountId}/r2-sql/query/linkedout-data-catalog`,
       {
@@ -96,7 +97,8 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
     );
 
     if (!response.ok) {
-      console.error("R2 SQL query failed:", response.status);
+      const errorText = await response.text();
+      console.error("R2 SQL query failed:", response.status, errorText);
       throw new Error(`R2 SQL query failed: ${response.status}`);
     }
 
@@ -105,17 +107,22 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
       errors?: Array<any>;
     };
 
+    console.log("R2 SQL response:", JSON.stringify(data));
+
     if (data.errors && data.errors.length > 0) {
-      console.error("R2 SQL query errors:", data.errors);
+      console.error("R2 SQL query errors:", JSON.stringify(data.errors));
     }
 
     const rows = data.result?.rows || [];
+    console.log(`Found ${rows.length} countries with data`);
+    
     const locations: LocationStats[] = rows.map((row: any) => ({
       country: row.country,
       count: row.count || 0,
     }));
 
     const totalViews = locations.reduce((sum, loc) => sum + loc.count, 0);
+    console.log(`Total views across all countries: ${totalViews}`);
 
     return {
       locations,
