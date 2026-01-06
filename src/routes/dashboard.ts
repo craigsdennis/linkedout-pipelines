@@ -230,6 +230,10 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
       email: email,
       isAdmin: user?.is_admin,
       children: html`
+        <script id="themes-data" type="application/json">
+          ${JSON.stringify(themes)}
+        </script>
+
         <form method="POST" action="/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
           <label for="slug" style="display: block; margin-bottom: 5px; font-weight: 500;">URL Slug</label>
           <input 
@@ -267,7 +271,47 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
             Choose a visual theme for your link page
           </p>
 
-          <label for="content" style="display: block; margin-bottom: 5px; font-weight: 500;">Content (Markdown)</label>
+          <!-- Custom Styling Section -->
+          <div id="customization-section" style="margin-top: 20px; padding: 20px; background: white; border-radius: 8px; border: 2px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <label style="display: block; margin: 0; font-weight: 600; font-size: 16px;">
+                🎨 Custom Styling (Optional)
+              </label>
+              <button 
+                type="button" 
+                id="customize-btn"
+                style="padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+              >
+                Customize Selected Theme
+              </button>
+            </div>
+            
+            <div id="custom-css-container" style="display: none;">
+              <textarea 
+                id="custom_css" 
+                name="custom_css"
+                style="min-height: 250px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 13px; line-height: 1.5; width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px;"
+                placeholder="/* Click 'Customize Selected Theme' to copy the theme's CSS here */
+
+/* You can override theme variables: */
+:root {
+  --primary-color: #ff0000;
+  --background: #ffffff;
+}
+
+/* Or add your own styles: */
+h1 {
+  font-size: 3em;
+  text-align: center;
+}"
+              ></textarea>
+              <p style="font-size: 13px; color: #666; margin-top: 10px;">
+                💡 <strong>Tip:</strong> Start with a base theme, then click "Customize" to copy its CSS as a starting point. Your changes will override the base theme.
+              </p>
+            </div>
+          </div>
+
+          <label for="content" style="display: block; margin-bottom: 5px; font-weight: 500; margin-top: 20px;">Content (Markdown)</label>
           <textarea 
             id="content" 
             name="content" 
@@ -285,9 +329,36 @@ Here are the links from my talk:
             Supports Markdown formatting. Add your links, headings, and text.
           </p>
 
-          <button type="submit">Create Link Page</button>
+          <!-- Live Preview Section -->
+          <div style="margin-top: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <h3 style="margin: 0; font-size: 18px;">👁️ Live Preview</h3>
+              <button 
+                type="button" 
+                id="toggle-preview-btn"
+                style="padding: 8px 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+              >
+                Show Preview
+              </button>
+            </div>
+            
+            <div id="live-preview-container" style="display: none; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; background: white; max-height: 600px; overflow-y: auto;">
+              <article id="preview-content" style="max-width: 800px; margin: 0 auto;">
+                <!-- Rendered markdown will appear here -->
+              </article>
+              <style id="preview-styles">
+                /* Combined CSS will appear here */
+              </style>
+            </div>
+            <p style="font-size: 13px; color: #666; margin-top: 10px;">
+              💡 Preview updates automatically as you type in the content or CSS fields (500ms debounce)
+            </p>
+          </div>
+
+          <button type="submit" style="margin-top: 20px;">Create Link Page</button>
         </form>
-      `
+      `,
+      scripts: ['/theme-customizer.js']
     })
   );
 });
@@ -587,6 +658,10 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
         }
       `,
       children: html`
+        <script id="themes-data" type="application/json">
+          ${JSON.stringify(themes)}
+        </script>
+
         <h2>Edit: ${slug}</h2>
         <form method="POST" action="/links/edit/${slug}">
           <label for="title">Page Title (Optional)</label>
@@ -600,14 +675,69 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
               </option>
             `)}
           </select>
+
+          <!-- Custom Styling Section -->
+          <div id="customization-section" style="margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 2px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <label style="display: block; margin: 0; font-weight: 600; font-size: 16px;">
+                🎨 Custom Styling (Optional)
+              </label>
+              <button 
+                type="button" 
+                id="customize-btn"
+                style="padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+              >
+                ${link.custom_css ? 'Reset to Selected Theme' : 'Customize Selected Theme'}
+              </button>
+            </div>
+            
+            <div id="custom-css-container" style="display: ${link.custom_css ? 'block' : 'none'};">
+              <textarea 
+                id="custom_css" 
+                name="custom_css"
+                style="min-height: 250px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 13px; line-height: 1.5; width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px;"
+                placeholder="/* Add custom CSS here */"
+              >${link.custom_css || ''}</textarea>
+              <p style="font-size: 13px; color: #666; margin-top: 10px;">
+                💡 <strong>Tip:</strong> Your custom CSS is saved with this link. All maintainers can see and edit it.
+              </p>
+            </div>
+          </div>
           
-          <label for="content">Content (Markdown)</label>
+          <label for="content" style="margin-top: 20px;">Content (Markdown)</label>
           <textarea id="content" name="content" required>${link.content}</textarea>
+
+          <!-- Live Preview Section -->
+          <div style="margin-top: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <h3 style="margin: 0; font-size: 18px;">👁️ Live Preview</h3>
+              <button 
+                type="button" 
+                id="toggle-preview-btn"
+                style="padding: 8px 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+              >
+                Show Preview
+              </button>
+            </div>
+            
+            <div id="live-preview-container" style="display: none; border: 2px solid #0066cc; border-radius: 8px; padding: 20px; background: white; max-height: 600px; overflow-y: auto;">
+              <article id="preview-content" style="max-width: 800px; margin: 0 auto;">
+                <!-- Rendered markdown will appear here -->
+              </article>
+              <style id="preview-styles">
+                /* Combined CSS will appear here */
+              </style>
+            </div>
+            <p style="font-size: 13px; color: #666; margin-top: 10px;">
+              💡 Preview updates automatically as you type
+            </p>
+          </div>
           
-          <button type="submit">Save Changes</button>
+          <button type="submit" style="margin-top: 20px;">Save Changes</button>
           <a href="/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
-      `
+      `,
+      scripts: ['/theme-customizer.js']
     })
   );
 });
