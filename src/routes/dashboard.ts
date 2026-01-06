@@ -231,7 +231,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
       isAdmin: user?.is_admin,
       children: html`
         <script id="themes-data" type="application/json">
-          ${JSON.stringify(themes)}
+          ${raw(JSON.stringify(themes))}
         </script>
 
         <form method="POST" action="/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
@@ -659,7 +659,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
       `,
       children: html`
         <script id="themes-data" type="application/json">
-          ${JSON.stringify(themes)}
+          ${raw(JSON.stringify(themes))}
         </script>
 
         <h2>Edit: ${slug}</h2>
