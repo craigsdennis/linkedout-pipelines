@@ -1086,7 +1086,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         slug,
         out,
         link_text,
-        user_agent
+        city,
+        region,
+        country
       FROM default.click_events_v6
       ${whereClause}
       ORDER BY __ingest_ts DESC
