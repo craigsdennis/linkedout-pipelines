@@ -34,6 +34,7 @@ app.get(
       <html>
         <head>
           <title>LinkedOut</title>
+          <link rel="icon" type="image/png" href="/favicon.png" />
           <link rel="stylesheet" href="/styles.css" />
           <script src="/track.js" defer></script>
           <script src="/qr.js" defer></script>
@@ -57,7 +58,7 @@ app.get("/out/:slug", async (c) => {
 
   // Get theme
   const theme = await getThemeFromDB(c.env.DB, link.theme_id);
-  const html = await marked(link.content);
+  const contentHtml = await marked(link.content);
 
   // Generate QR code for this page
   const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
@@ -97,27 +98,66 @@ app.get("/out/:slug", async (c) => {
   // Generate theme CSS from variables + custom CSS
   const themeStyles = generateThemeCSS(theme, link.custom_css);
 
-  return c.render(
-    <>
-      <article dangerouslySetInnerHTML={{ __html: html }} />
-      {themeStyles && <style>{themeStyles}</style>}
-      <script dangerouslySetInnerHTML={{ __html: `window.qrSlug = '${slug}';` }} />
-      <div id="qr-modal" class="qr-modal" onclick="if(event.target === this) hideQR()">
-        <button class="qr-modal-close" onclick="hideQR()">×</button>
-        <div class="qr-modal-content">
-          <h2>Share this page</h2>
-          <div id="qr-code-container" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-          <p style="font-size: 14px; color: #666; word-break: break-all; margin: 20px 0;">
-            {c.req.url}
-          </p>
-          <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <button class="btn" onclick="downloadQRCode()">Download PNG</button>
-            <button class="btn btn-secondary" onclick="hideQR()">Close (Q or ESC)</button>
-          </div>
+  // Prepare Open Graph metadata
+  const pageTitle = link.title || slug;
+  const pageUrl = c.req.url;
+  // Extract plain text description from markdown (first 200 chars)
+  const plainText = link.content
+    .replace(/[#*_`\[\]()]/g, '') // Remove markdown formatting
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .trim()
+    .substring(0, 200);
+  const pageDescription = plainText + (plainText.length >= 200 ? '...' : '');
+
+  // Build full HTML with OG tags
+  const fullHtml = html`<!DOCTYPE html>
+<html>
+  <head>
+    <title>${pageTitle} - LinkedOut</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="${pageDescription}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${pageUrl}">
+    <meta property="og:title" content="${pageTitle}">
+    <meta property="og:description" content="${pageDescription}">
+    <meta property="og:site_name" content="LinkedOut">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:url" content="${pageUrl}">
+    <meta name="twitter:title" content="${pageTitle}">
+    <meta name="twitter:description" content="${pageDescription}">
+    
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/track.js" defer></script>
+    <script src="/qr.js" defer></script>
+    ${themeStyles ? html`<style>${raw(themeStyles)}</style>` : ''}
+  </head>
+  <body class="base-layout">
+    <article>${raw(contentHtml)}</article>
+    <script>window.qrSlug = '${slug}';</script>
+    <div id="qr-modal" class="qr-modal" onclick="if(event.target === this) hideQR()">
+      <button class="qr-modal-close" onclick="hideQR()">×</button>
+      <div class="qr-modal-content">
+        <h2>Share this page</h2>
+        <div id="qr-code-container">${raw(qrSvg)}</div>
+        <p style="font-size: 14px; color: #666; word-break: break-all; margin: 20px 0;">
+          ${pageUrl}
+        </p>
+        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn" onclick="downloadQRCode()">Download PNG</button>
+          <button class="btn btn-secondary" onclick="hideQR()">Close (Q or ESC)</button>
         </div>
       </div>
-    </>
-  );
+    </div>
+  </body>
+</html>`;
+
+  return c.html(fullHtml);
 });
 
 // Home page
