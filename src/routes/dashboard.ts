@@ -212,6 +212,30 @@ dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
     return c.html("Cannot delete your own account", 400);
   }
 
+  // Check if user is the sole maintainer of any links
+  const linksWhereOnlyMaintainer = await c.env.DB
+    .prepare(`
+      SELECT DISTINCT lm.link_slug
+      FROM link_maintainers lm
+      WHERE lm.user_email = ?
+      AND (
+        SELECT COUNT(DISTINCT user_email) 
+        FROM link_maintainers 
+        WHERE link_slug = lm.link_slug
+      ) = 1
+    `)
+    .bind(deleteEmail)
+    .all();
+
+  if (linksWhereOnlyMaintainer.results && linksWhereOnlyMaintainer.results.length > 0) {
+    const orphanedLinks = linksWhereOnlyMaintainer.results.map((r: any) => r.link_slug).join(", ");
+    return c.html(
+      `Cannot delete user ${deleteEmail}. They are the only maintainer of these links: ${orphanedLinks}. 
+      Please add another maintainer or delete the links first. <a href="/admin">Back to Admin</a>`,
+      400
+    );
+  }
+
   await deleteUserFromDB(c.env.DB, deleteEmail);
   return c.redirect("/admin");
 });
