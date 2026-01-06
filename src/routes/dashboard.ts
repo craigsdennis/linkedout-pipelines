@@ -1473,7 +1473,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                   <th>Type</th>
                   <th>Link Text</th>
                   <th>Destination URL</th>
-                  <th>User Agent</th>
+                  <th>Location</th>
                 </tr>
               </thead>
               <tbody>
@@ -1483,25 +1483,34 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                       No events yet - create a link and visit it to see data here
                     </td>
                   </tr>
-                ` : recentEvents.map(event => html`
-                  <tr>
-                    <td>${new Date(event.timestamp).toLocaleString()}</td>
-                    <td>
-                      <span class="badge ${event.event_type === 'click' ? 'click' : event.event_type === 'qr_scan' ? 'qr' : 'view'}">
-                        ${event.event_type}
-                      </span>
-                    </td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${event.link_text || '-'}
-                    </td>
-                    <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${event.out ? html`<a href="${event.out}" target="_blank" style="color: #0066cc;">${event.out.length > 40 ? event.out.substring(0, 40) + '...' : event.out}</a>` : '-'}
-                    </td>
-                    <td style="font-size: 11px; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${event.user_agent ? (event.user_agent.length > 30 ? event.user_agent.substring(0, 30) + '...' : event.user_agent) : '-'}
-                    </td>
-                  </tr>
-                `)}
+                ` : recentEvents.map(event => {
+                  // Build location string from available fields
+                  const locationParts = [];
+                  if (event.city) locationParts.push(event.city);
+                  if (event.region) locationParts.push(event.region);
+                  if (event.country) locationParts.push(event.country);
+                  const location = locationParts.length > 0 ? locationParts.join(', ') : '-';
+                  
+                  return html`
+                    <tr>
+                      <td>${new Date(event.timestamp).toLocaleString()}</td>
+                      <td>
+                        <span class="badge ${event.event_type === 'click' ? 'click' : event.event_type === 'qr_scan' ? 'qr' : 'view'}">
+                          ${event.event_type}
+                        </span>
+                      </td>
+                      <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${event.link_text || '-'}
+                      </td>
+                      <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${event.out ? html`<a href="${event.out}" target="_blank" style="color: #0066cc;">${event.out.length > 40 ? event.out.substring(0, 40) + '...' : event.out}</a>` : '-'}
+                      </td>
+                      <td style="font-size: 12px; color: #666;">
+                        ${location}
+                      </td>
+                    </tr>
+                  `;
+                })}
               </tbody>
             </table>
           </div>
