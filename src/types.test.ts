@@ -62,6 +62,7 @@ describe("TypeScript Types", () => {
         created_by: "test@example.com",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        custom_css: null,
       };
 
       expect(link.slug).toBe("my-page");
@@ -78,6 +79,7 @@ describe("TypeScript Types", () => {
         created_by: "test@example.com",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        custom_css: null,
       };
 
       expect(link.title).toBe("My Styled Page");

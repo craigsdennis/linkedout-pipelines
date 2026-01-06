@@ -4,7 +4,7 @@ import { marked } from "marked";
 import QRCode from "qrcode";
 import type { ClickEvent } from "../types";
 import { getUser, createUser } from "../utils/auth";
-import { getCfProperties, getVisitorId } from "../utils/helpers";
+import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helpers";
 import { authMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import {
@@ -300,6 +300,7 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
   const title = (formData.get("title") as string) || null;
   const content = formData.get("content") as string;
   const theme_id = (formData.get("theme_id") as string) || "default";
+  const custom_css = (formData.get("custom_css") as string) || null;
 
   if (!slug || !content) {
     return c.html("Slug and content are required", 400);
@@ -324,6 +325,7 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
       title,
       content,
       theme_id,
+      custom_css,
       created_by: email,
     },
     email // maintainer email
@@ -630,6 +632,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
   const content = formData.get("content") as string;
   const title = (formData.get("title") as string) || null;
   const theme_id = formData.get("theme_id") as string;
+  const custom_css = (formData.get("custom_css") as string) || null;
 
   if (!content) {
     return c.html("Content is required", 400);
@@ -639,6 +642,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
     content,
     title,
     theme_id,
+    custom_css,
   });
 
   return c.redirect(`/links/view/${slug}`);
@@ -1313,6 +1317,27 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       `
     })
   );
+});
+
+// Live preview API endpoint
+dashboard.post("/api/preview", authMiddleware, async (c) => {
+  try {
+    const { markdown, theme_id, custom_css } = await c.req.json();
+
+    // Get theme
+    const theme = await getThemeFromDB(c.env.DB, theme_id);
+
+    // Render markdown to HTML
+    const htmlContent = await marked(markdown || '# Preview\n\nStart typing to see your content...');
+
+    // Generate combined CSS
+    const css = generateThemeCSS(theme, custom_css);
+
+    return c.json({ html: htmlContent, css });
+  } catch (err) {
+    console.error('Preview error:', err);
+    return c.json({ error: 'Preview failed' }, 500);
+  }
 });
 
 export default dashboard;

@@ -83,7 +83,7 @@ export async function getLinkFromDB(
 ): Promise<Link | null> {
   const result = await db
     .prepare(
-      "SELECT slug, title, content, theme_id, created_by, created_at, updated_at FROM links WHERE slug = ?"
+      "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM links WHERE slug = ?"
     )
     .bind(slug)
     .first<{
@@ -94,6 +94,7 @@ export async function getLinkFromDB(
       created_by: string;
       created_at: string;
       updated_at: string;
+      custom_css: string | null;
     }>();
 
   if (!result) return null;
@@ -106,6 +107,7 @@ export async function getLinkFromDB(
     created_by: result.created_by,
     created_at: result.created_at,
     updated_at: result.updated_at,
+    custom_css: result.custom_css,
   };
 }
 
@@ -139,7 +141,7 @@ export async function createLinkInDB(
   // Insert link
   await db
     .prepare(
-      "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(
       fullLink.slug,
@@ -148,7 +150,8 @@ export async function createLinkInDB(
       fullLink.theme_id,
       fullLink.created_by,
       fullLink.created_at,
-      fullLink.updated_at
+      fullLink.updated_at,
+      fullLink.custom_css
     )
     .run();
 
@@ -161,7 +164,7 @@ export async function createLinkInDB(
 export async function updateLinkInDB(
   db: D1Database,
   slug: string,
-  updates: Partial<Pick<Link, "title" | "content" | "theme_id">>
+  updates: Partial<Pick<Link, "title" | "content" | "theme_id" | "custom_css">>
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -179,6 +182,10 @@ export async function updateLinkInDB(
   if (updates.theme_id !== undefined) {
     setClauses.push("theme_id = ?");
     values.push(updates.theme_id);
+  }
+  if (updates.custom_css !== undefined) {
+    setClauses.push("custom_css = ?");
+    values.push(updates.custom_css);
   }
 
   if (setClauses.length === 0) return;
@@ -208,7 +215,7 @@ export async function getUserLinks(
 ): Promise<Link[]> {
   const result = await db
     .prepare(
-      `SELECT DISTINCT l.slug, l.title, l.content, l.theme_id, l.created_by, l.created_at, l.updated_at
+      `SELECT DISTINCT l.slug, l.title, l.content, l.theme_id, l.created_by, l.created_at, l.updated_at, l.custom_css
        FROM links l
        INNER JOIN link_maintainers lm ON l.slug = lm.link_slug
        WHERE lm.user_email = ?
@@ -223,6 +230,7 @@ export async function getUserLinks(
       created_by: string;
       created_at: string;
       updated_at: string;
+      custom_css: string | null;
     }>();
 
   if (!result.results) return [];
@@ -235,6 +243,7 @@ export async function getUserLinks(
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    custom_css: row.custom_css,
   }));
 }
 

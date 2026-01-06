@@ -221,6 +221,7 @@ describe("Link Operations", () => {
         content: "https://example.com",
         theme_id: "default",
         created_by: "creator@example.com",
+        custom_css: null,
       };
 
       const result = await createLinkInDB(db, linkData, "creator@example.com");

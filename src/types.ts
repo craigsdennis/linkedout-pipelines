@@ -29,6 +29,7 @@ export interface Link {
   created_by: string;
   created_at: string;
   updated_at: string;
+  custom_css: string | null;
 }
 
 // Link with maintainers list

@@ -6,7 +6,7 @@ import { html, raw } from "hono/html";
 import QRCode from "qrcode";
 import type { ClickEvent } from "./types";
 import { verifyToken } from "./utils/auth";
-import { getCfProperties, getVisitorId } from "./utils/helpers";
+import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
 import { getLinkFromDB, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
 import tracking from "./routes/tracking";
@@ -94,15 +94,8 @@ app.get("/out/:slug", async (c) => {
     console.error("Event was:", JSON.stringify(pageViewEvent));
   }
 
-  // Generate theme CSS from variables
-  let themeStyles = '';
-  if (theme) {
-    const cssVars = Object.entries(theme.css_variables)
-      .map(([key, value]) => `${key}: ${value};`)
-      .join('\n    ');
-    
-    themeStyles = `:root {\n    ${cssVars}\n  }\n  ${theme.additional_css || ''}`;
-  }
+  // Generate theme CSS from variables + custom CSS
+  const themeStyles = generateThemeCSS(theme, link.custom_css);
 
   return c.render(
     <>
