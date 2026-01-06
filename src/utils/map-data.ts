@@ -70,17 +70,17 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
   }
 
   try {
-    // Query for country-level rollup
+    // Query for country-level rollup (no AS aliases - R2 SQL doesn't support them)
     const query = `
       SELECT 
         country,
-        COUNT(*) as count
+        COUNT(*)
       FROM default.click_events_v6
       WHERE event_type = 'page_view' 
         AND country IS NOT NULL
         AND country != ''
       GROUP BY country
-      ORDER BY count DESC
+      ORDER BY COUNT(*) DESC
     `;
 
     console.log("Querying R2 SQL for map data...");
@@ -118,7 +118,7 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
     
     const locations: LocationStats[] = rows.map((row: any) => ({
       country: row.country,
-      count: row.count || 0,
+      count: row['count(*)'] || 0, // R2 SQL doesn't support AS aliases
     }));
 
     const totalViews = locations.reduce((sum, loc) => sum + loc.count, 0);
