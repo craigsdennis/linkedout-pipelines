@@ -1463,11 +1463,6 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           </div>
         ` : html``}
 
-        <div class="card">
-          <h3>Pipeline Info</h3>
-          <p style="color: #666;">Currently querying: <code>default.click_events_v6</code></p>
-          <p style="color: #999; font-size: 14px;">Note: After Pipeline v6 migration, this will query <code>default.click_events_v6</code> which no longer has owner_email field.</p>
-        </div>
       `
     })
   );
