@@ -948,9 +948,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         // No links yet - return empty results
         whereClause = "WHERE slug = 'nonexistent'"; // Will return no results
       } else {
-        // Build slug IN (...) clause
-        const slugList = userSlugs.map(s => `'${s}'`).join(', ');
-        whereClause = `WHERE slug IN (${slugList})`;
+        // Build slug OR clause (R2 SQL doesn't support IN clause)
+        const slugConditions = userSlugs.map(s => `slug = '${s}'`).join(' OR ');
+        whereClause = `WHERE (${slugConditions})`;
       }
     }
 
