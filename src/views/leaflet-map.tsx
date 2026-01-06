@@ -72,16 +72,16 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
         style="height: 500px; width: 100%; border: 1px solid #d1d5db; border-radius: 8px; background: #e0f2fe;"
       ></div>
 
-      {/* Top Countries List */}
+      {/* Top Locations List */}
       <div style="margin-top: 20px;">
         <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Top Locations</h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
-          {markers.slice(0, 10).map((marker) => (
+          {markers.slice(0, 10).map((marker, idx) => (
             <div
-              key={marker.country}
+              key={`${marker.location}-${idx}`}
               style="padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;"
             >
-              <span style="font-size: 13px; font-weight: 500;">{marker.country}</span>
+              <span style="font-size: 13px; font-weight: 500;">{marker.location}</span>
               <span style="font-size: 13px; color: #6b7280;">{marker.count.toLocaleString()}</span>
             </div>
           ))}
