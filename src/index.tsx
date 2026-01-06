@@ -167,6 +167,44 @@ app.get("/out/:slug", async (c) => {
   return c.html(fullHtml);
 });
 
+// QR code tracking redirect
+app.get("/q/:slug", async (c) => {
+  const { slug } = c.req.param();
+
+  // Get link from D1
+  const link = await getLinkFromDB(c.env.DB, slug);
+  if (!link) {
+    return c.html("<h1>404 - Link not found</h1>", 404);
+  }
+
+  // Track QR scan asynchronously (don't block response)
+  const qrScanEvent: ClickEvent = {
+    timestamp: new Date().toISOString(),
+    url: c.req.url,
+    out: null,
+    slug: link.slug,
+    visitor_id: getVisitorId(c),
+    user_agent: c.req.header("user-agent"),
+    referer: c.req.header("referer"),
+    event_type: "qr_scan",
+    ...getCfProperties(c.req.raw),
+  };
+
+  waitUntil((async () => {
+    console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
+    try {
+      await c.env.CLICK_STREAM.send([qrScanEvent]);
+      console.log("qr_scan event sent successfully");
+    } catch (err) {
+      console.error("Failed to send qr_scan event:", err);
+      console.error("Event was:", JSON.stringify(qrScanEvent));
+    }
+  })());
+
+  // Redirect to the actual outie page
+  return c.redirect(`/out/${slug}`);
+});
+
 // Home page
 app.get("/", async (c) => {
   const token = getCookie(c, "auth_token");
