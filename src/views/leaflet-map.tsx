@@ -48,7 +48,9 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
           </p>
         </div>
         <div style="font-size: 12px; color: #9ca3af;">
-          Updated: {new Date(mapData.lastUpdated).toLocaleTimeString()}
+          <span id="map-last-updated" data-timestamp="{mapData.lastUpdated}">
+            Updated: {new Date(mapData.lastUpdated).toLocaleTimeString()}
+          </span>
         </div>
       </div>
 
@@ -78,6 +80,14 @@ export function LeafletMap({ mapData }: { mapData: MapData }) {
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       {raw(`<script>
         (function() {
+          // Format last updated time in user's local time
+          const updateEl = document.getElementById('map-last-updated');
+          if (updateEl) {
+            const timestamp = updateEl.getAttribute('data-timestamp');
+            const date = new Date(timestamp);
+            updateEl.textContent = 'Updated: ' + date.toLocaleTimeString();
+          }
+
           // Wait for Leaflet to load
           if (typeof L === 'undefined') {
             console.error('Leaflet not loaded');
