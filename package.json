@@ -6,7 +6,8 @@
 		"deploy": "wrangler deploy --minify",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"seed-admin": "tsx scripts/seed-admin.ts"
 	},
 	"dependencies": {
 		"common-tags": "^1.8.2",

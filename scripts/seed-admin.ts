@@ -1,16 +1,54 @@
 /**
- * Seed script to create the first admin user
+ * Seed script to create or promote an admin user in D1
  * 
- * Usage:
- * npx wrangler kv key put --binding USERS "user:your@email.com" '{"email":"your@email.com","created_at":"2025-12-29T00:00:00.000Z","is_admin":true}' --preview false
+ * Usage (local):
+ *   npx wrangler d1 execute linkedout-db --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('your@email.com', 1, '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)')"
+ * 
+ * Usage (remote/production):
+ *   npx wrangler d1 execute linkedout-db --remote --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('your@email.com', 1, '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)')"
+ * 
+ * Or to promote an existing user:
+ *   npx wrangler d1 execute linkedout-db --remote --command "UPDATE users SET is_admin = 1 WHERE email = 'your@email.com'"
  */
 
-// This is just a template. Run the command above with your actual email.
+const adminEmail = process.argv[2];
+
+if (!adminEmail) {
+  console.log(`
+⚠️  No email provided.
+
+USAGE:
+  npm run seed-admin your@email.com
+
+Or run directly:
+
+  # Create new admin (local):
+  npx wrangler d1 execute linkedout-db --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('your@email.com', 1, datetime('now'))"
+
+  # Create new admin (production):
+  npx wrangler d1 execute linkedout-db --remote --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('your@email.com', 1, datetime('now'))"
+
+  # Promote existing user to admin (production):
+  npx wrangler d1 execute linkedout-db --remote --command "UPDATE users SET is_admin = 1 WHERE email = 'your@email.com'"
+
+VERIFY:
+  npx wrangler d1 execute linkedout-db --remote --command "SELECT email, is_admin FROM users WHERE is_admin = 1"
+`);
+  process.exit(1);
+}
+
 console.log(`
-To create an admin user, run:
+To make ${adminEmail} an admin, run ONE of these commands:
 
-npx wrangler kv key put --binding USERS "user:YOUR_EMAIL_HERE" '{"email":"YOUR_EMAIL_HERE","created_at":"${new Date().toISOString()}","is_admin":true}' --preview false
+LOCAL (development):
+  npx wrangler d1 execute linkedout-db --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('${adminEmail}', 1, datetime('now'))"
 
-Example:
-npx wrangler kv key put --binding USERS "user:craig@example.com" '{"email":"craig@example.com","created_at":"${new Date().toISOString()}","is_admin":true}' --preview false
+REMOTE (production):
+  npx wrangler d1 execute linkedout-db --remote --command "INSERT OR REPLACE INTO users (email, is_admin, created_at) VALUES ('${adminEmail}', 1, datetime('now'))"
+
+Or if user exists, just promote them:
+  npx wrangler d1 execute linkedout-db --remote --command "UPDATE users SET is_admin = 1 WHERE email = '${adminEmail}'"
+
+Verify it worked:
+  npx wrangler d1 execute linkedout-db --remote --command "SELECT email, is_admin FROM users WHERE email = '${adminEmail}'"
 `);
