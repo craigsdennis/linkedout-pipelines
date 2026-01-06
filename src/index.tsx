@@ -72,31 +72,32 @@ app.get("/out/:slug", async (c) => {
     }
   });
 
-  // Track page view
-  const pageViewEvent: ClickEvent = {
-    timestamp: new Date().toISOString(),
-    url: c.req.url,
-    out: null,
-    slug: link.slug,
-    visitor_id: getVisitorId(c),
-    user_agent: c.req.header("user-agent"),
-    referer: c.req.header("referer"),
-    event_type: "page_view",
-    ...getCfProperties(c.req.raw),
-  };
-
-  // Write to pipeline (await to ensure delivery)
-  console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
-  try {
-    await c.env.CLICK_STREAM.send([pageViewEvent]);
-    console.log("page_view event sent successfully");
-  } catch (err) {
-    console.error("Failed to send page_view event:", err);
-    console.error("Event was:", JSON.stringify(pageViewEvent));
-  }
-
   // Generate theme CSS from variables + custom CSS
   const themeStyles = generateThemeCSS(theme, link.custom_css);
+  
+  // Track page view asynchronously (don't block response)
+  c.executionCtx.waitUntil((async () => {
+    const pageViewEvent: ClickEvent = {
+      timestamp: new Date().toISOString(),
+      url: c.req.url,
+      out: null,
+      slug: link.slug,
+      visitor_id: getVisitorId(c),
+      user_agent: c.req.header("user-agent"),
+      referer: c.req.header("referer"),
+      event_type: "page_view",
+      ...getCfProperties(c.req.raw),
+    };
+
+    console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
+    try {
+      await c.env.CLICK_STREAM.send([pageViewEvent]);
+      console.log("page_view event sent successfully");
+    } catch (err) {
+      console.error("Failed to send page_view event:", err);
+      console.error("Event was:", JSON.stringify(pageViewEvent));
+    }
+  })());
 
   // Prepare Open Graph metadata
   const pageTitle = link.title || slug;
