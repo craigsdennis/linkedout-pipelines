@@ -17,7 +17,7 @@ import {
   updateLink,
   deleteLink,
   canUserAccessLink,
-  addMaintainerToDB,
+  addMaintainer,
   removeMaintainer,
   getLinkMaintainers,
   getUserAccessibleSlugs,
@@ -528,7 +528,6 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
 
   // Create link in D1 (also adds creator as maintainer)
   await createLink(
-    c.env.DB,
     {
       slug,
       title,
