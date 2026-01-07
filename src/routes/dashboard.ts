@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import type { ClickEvent } from "../types";
 import { getUser, createUser } from "../utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helpers";
-import { authMiddleware } from "../middleware/auth";
+import { authMiddleware, adminMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import { LeafletMap } from "../views/leaflet-map";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
@@ -29,14 +29,17 @@ import {
 
 type Variables = {
   userEmail: string;
+  userName: string;
+  isAdmin: boolean;
 };
 
 const dashboard = new Hono<{ Bindings: CloudflareBindings; Variables: Variables }>();
 
 // Dashboard - user's links overview
-dashboard.get("/dashboard", authMiddleware, async (c) => {
+dashboard.get("/", authMiddleware, async (c) => {
   const email = c.get("userEmail");
-  const user = await getUser(email);
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   // Get user's accessible links from D1
   const userLinks = await getUserLinks(c.env.DB, email);
@@ -45,11 +48,12 @@ dashboard.get("/dashboard", authMiddleware, async (c) => {
     DashboardLayout({
       title: "Dashboard",
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       children: html`
         <div class="card">
           <h2>Your Outies</h2>
-          <a href="/links/create" class="btn">Create New Outie</a>
+          <a href="/dashboard/links/create" class="btn">Create New Outie</a>
           
           ${userLinks.length === 0 
             ? html`<p>No outies yet. Create your first one!</p>`
@@ -72,7 +76,7 @@ dashboard.get("/dashboard", authMiddleware, async (c) => {
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                       <a href="/out/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">View</a>
-                      <a href="/links/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
+                      <a href="/dashboard/links/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
                       <a href="/qr/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">QR Code</a>
                       <a href="/analytics?slug=${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px; background: #f5f5f5; color: #333;" title="View analytics for this page">
                         📊 Analytics
@@ -90,8 +94,10 @@ dashboard.get("/dashboard", authMiddleware, async (c) => {
 });
 
 // Admin panel (protected, admin only)
-dashboard.get("/admin", authMiddleware, async (c) => {
+dashboard.get("/admin", adminMiddleware, async (c) => {
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
   const user = await getUser(email);
 
   if (!user?.is_admin) {
@@ -123,13 +129,14 @@ dashboard.get("/admin", authMiddleware, async (c) => {
     DashboardLayout({
       title: "Admin Panel",
       email: email,
+      userName: userName,
       isAdmin: true,
       children: html`
         ${mapData ? html`
           <div class="card">
             ${LeafletMap({ mapData })}
             <div style="margin-top: 20px; text-align: right;">
-              <form method="POST" action="/admin/clear-map-cache" style="display: inline;">
+              <form method="POST" action="/dashboard/admin/clear-map-cache" style="display: inline;">
                 <button type="submit" class="btn btn-secondary" style="font-size: 14px;">
                   🔄 Refresh Map Data
                 </button>
@@ -139,19 +146,10 @@ dashboard.get("/admin", authMiddleware, async (c) => {
         ` : ''}
         
         <div class="card">
-          <h2>Add New User</h2>
-          <form method="POST" action="/admin/add-user" style="display: flex; gap: 10px;">
-            <input type="email" name="email" placeholder="user@example.com" required style="flex: 1;" />
-            <label>
-              <input type="checkbox" name="is_admin" value="true" />
-              Admin
-            </label>
-            <button type="submit">Add User</button>
-          </form>
-        </div>
-
-        <div class="card">
           <h2>All Users</h2>
+          <p style="color: #6b7280; margin-bottom: 20px;">
+            Users are automatically created on first login via Cloudflare Access.
+          </p>
           <table>
             <thead>
               <tr>
@@ -172,11 +170,26 @@ dashboard.get("/admin", authMiddleware, async (c) => {
                     }
                   </td>
                   <td>${new Date(u.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <form method="POST" action="/admin/delete-user" style="display: inline;">
-                      <input type="hidden" name="email" value="${u.email}" />
-                      <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 14px;">Delete</button>
-                    </form>
+                  <td style="display: flex; gap: 5px;">
+                    ${u.email !== email ? html`
+                      ${u.is_admin ? html`
+                        <form method="POST" action="/dashboard/admin/demote" style="display: inline;">
+                          <input type="hidden" name="email" value="${u.email}" />
+                          <button type="submit" class="btn" style="padding: 5px 10px; font-size: 14px; background: #f3f4f6; color: #374151;">Revoke Admin</button>
+                        </form>
+                      ` : html`
+                        <form method="POST" action="/dashboard/admin/promote" style="display: inline;">
+                          <input type="hidden" name="email" value="${u.email}" />
+                          <button type="submit" class="btn" style="padding: 5px 10px; font-size: 14px; background: #e0f2fe; color: #0c4a6e;">Make Admin</button>
+                        </form>
+                      `}
+                      <form method="POST" action="/dashboard/admin/delete-user" style="display: inline;">
+                        <input type="hidden" name="email" value="${u.email}" />
+                        <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 14px;">Delete</button>
+                      </form>
+                    ` : html`
+                      <span style="color: #9ca3af; font-size: 12px;">(You)</span>
+                    `}
                   </td>
                 </tr>
               `)}
@@ -188,41 +201,53 @@ dashboard.get("/admin", authMiddleware, async (c) => {
   );
 });
 
-// Add user (admin only)
-dashboard.post("/admin/add-user", authMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const user = await getUser(email);
-
-  if (!user?.is_admin) {
-    return c.html("Access denied", 403);
-  }
-
+// Promote user to admin
+dashboard.post("/admin/promote", adminMiddleware, async (c) => {
   const formData = await c.req.formData();
-  const newEmail = formData.get("email") as string;
-  const isAdmin = formData.get("is_admin") === "true";
+  const targetEmail = formData.get("email") as string;
 
-  if (!newEmail) {
+  if (!targetEmail) {
     return c.html("Email required", 400);
   }
 
-  // Check if user already exists
-  const existing = await getUser(newEmail);
-  if (existing) {
-    return c.html("User already exists", 400);
+  // Update user's admin status in D1
+  await c.env.DB
+    .prepare("UPDATE users SET is_admin = 1 WHERE email = ?")
+    .bind(targetEmail)
+    .run();
+
+  return c.redirect("/dashboard/admin");
+});
+
+// Demote admin to regular user
+dashboard.post("/admin/demote", adminMiddleware, async (c) => {
+  const currentEmail = c.get("userEmail");
+  const formData = await c.req.formData();
+  const targetEmail = formData.get("email") as string;
+
+  if (!targetEmail) {
+    return c.html("Email required", 400);
   }
 
-  await createUser(newEmail, isAdmin);
-  return c.redirect("/admin");
+  // Don't allow demoting yourself
+  if (targetEmail === currentEmail) {
+    return c.html("Cannot demote yourself", 400);
+  }
+
+  // Update user's admin status in D1
+  await c.env.DB
+    .prepare("UPDATE users SET is_admin = 0 WHERE email = ?")
+    .bind(targetEmail)
+    .run();
+
+  return c.redirect("/dashboard/admin");
 });
 
 // Clear map cache (admin only)
-dashboard.post("/admin/clear-map-cache", authMiddleware, async (c) => {
+dashboard.post("/admin/clear-map-cache", adminMiddleware, async (c) => {
   const email = c.get("userEmail");
-  const user = await getUser(email);
-
-  if (!user?.is_admin) {
-    return c.html("Access denied", 403);
-  }
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   try {
     console.log("Admin clearing map cache:", email);
@@ -232,17 +257,14 @@ dashboard.post("/admin/clear-map-cache", authMiddleware, async (c) => {
     console.error("Failed to refresh map cache:", error);
   }
 
-  return c.redirect("/admin");
+  return c.redirect("/dashboard/admin");
 });
 
 // Delete user (admin only)
-dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
+dashboard.post("/admin/delete-user", adminMiddleware, async (c) => {
   const email = c.get("userEmail");
-  const user = await getUser(email);
-
-  if (!user?.is_admin) {
-    return c.html("Access denied", 403);
-  }
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const formData = await c.req.formData();
   const deleteEmail = formData.get("email") as string;
@@ -275,18 +297,20 @@ dashboard.post("/admin/delete-user", authMiddleware, async (c) => {
     const orphanedLinks = linksWhereOnlyMaintainer.results.map((r: any) => r.link_slug).join(", ");
     return c.html(
       `Cannot delete user ${deleteEmail}. They are the only maintainer of these links: ${orphanedLinks}. 
-      Please add another maintainer or delete the links first. <a href="/admin">Back to Admin</a>`,
+      Please add another maintainer or delete the links first. <a href="/dashboard/admin">Back to Admin</a>`,
       400
     );
   }
 
   await deleteUserFromDB(c.env.DB, deleteEmail);
-  return c.redirect("/admin");
+  return c.redirect("/dashboard/admin");
 });
 
 // Create outie
 dashboard.get("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
   const user = await getUser(email);
   
   // Get available themes
@@ -296,13 +320,14 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
     DashboardLayout({
       title: "Create Outie",
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       children: html`
         <script id="themes-data" type="application/json">
           ${raw(JSON.stringify(themes))}
         </script>
 
-        <form method="POST" action="/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
+        <form method="POST" action="/dashboard/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
           <label for="slug" style="display: block; margin-bottom: 5px; font-weight: 500;">URL Slug</label>
           <input 
             type="text" 
@@ -434,6 +459,8 @@ Here are the links from my talk:
 // Create link handler
 dashboard.post("/links/create", authMiddleware, async (c) => {
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
   const formData = await c.req.formData();
   const slug = formData.get("slug") as string;
   const title = (formData.get("title") as string) || null;
@@ -470,13 +497,15 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
     email // maintainer email
   );
 
-  return c.redirect(`/links/view/${slug}`);
+  return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
 // View/edit link
 dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const linkWithMaintainers = await getLinkWithMaintainers(c.env.DB, slug);
   if (!linkWithMaintainers) {
@@ -511,7 +540,8 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
     DashboardLayout({
       title: `Link: ${slug}`,
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       scripts: ['/qr.js'],
       children: html`
         <script>window.qrSlug = '${slug}';</script>
@@ -566,7 +596,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
               <li style="padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                 <span>${maintainerEmail}</span>
                 ${linkWithMaintainers.maintainers.length > 1 ? html`
-                  <form method="POST" action="/links/${slug}/remove-maintainer" style="display: inline;">
+                  <form method="POST" action="/dashboard/links/${slug}/remove-maintainer" style="display: inline;">
                     <input type="hidden" name="email" value="${maintainerEmail}" />
                     <button type="submit" class="btn btn-secondary" style="padding: 5px 10px; font-size: 13px;" onclick="return confirm('Remove ${maintainerEmail} as maintainer?')">Remove</button>
                   </form>
@@ -577,7 +607,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
             `)}
           </ul>
           
-          <form method="POST" action="/links/${slug}/add-maintainer" style="margin-top: 20px; display: flex; gap: 10px;">
+          <form method="POST" action="/dashboard/links/${slug}/add-maintainer" style="margin-top: 20px; display: flex; gap: 10px;">
             <input type="email" name="email" placeholder="user@example.com" required style="flex: 1;" />
             <button type="submit">Add Maintainer</button>
           </form>
@@ -586,8 +616,8 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
         <div class="card">
           <h3>Actions</h3>
           <div class="actions">
-            <a href="/links/edit/${slug}" class="btn">Edit Content</a>
-            <form method="POST" action="/links/delete/${slug}" style="display: inline;">
+            <a href="/dashboard/links/edit/${slug}" class="btn">Edit Content</a>
+            <form method="POST" action="/dashboard/links/delete/${slug}" style="display: inline;">
               <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete this outie?')">Delete</button>
             </form>
           </div>
@@ -601,6 +631,8 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
 dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   // Check if user has access
   const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
@@ -628,13 +660,15 @@ dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
   }
 
   await addMaintainerToDB(c.env.DB, slug, newMaintainerEmail, email);
-  return c.redirect(`/links/view/${slug}`);
+  return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
 // Remove maintainer
 dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   // Check if user has access
   const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
@@ -656,13 +690,15 @@ dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
   }
 
   await removeMaintainerFromDB(c.env.DB, slug, removeMaintainerEmail);
-  return c.redirect(`/links/view/${slug}`);
+  return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
 // Edit link
 dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const link = await getLinkFromDB(c.env.DB, slug);
   if (!link) {
@@ -682,7 +718,8 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
     DashboardLayout({
       title: `Edit: ${slug}`,
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       styles: `
         form {
           background: white;
@@ -731,7 +768,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
         </script>
 
         <h2>Edit: ${slug}</h2>
-        <form method="POST" action="/links/edit/${slug}">
+        <form method="POST" action="/dashboard/links/edit/${slug}">
           <label for="title">Page Title (Optional)</label>
           <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your outie">
           
@@ -802,7 +839,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           </div>
           
           <button type="submit" style="margin-top: 20px;">Save Changes</button>
-          <a href="/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
+          <a href="/dashboard/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
       `,
       scripts: ['/theme-customizer.js']
@@ -814,6 +851,8 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
 dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const link = await getLinkFromDB(c.env.DB, slug);
   if (!link) {
@@ -843,13 +882,15 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
     custom_css,
   });
 
-  return c.redirect(`/links/view/${slug}`);
+  return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
 // Delete link handler
 dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const link = await getLinkFromDB(c.env.DB, slug);
   if (!link) {
@@ -868,9 +909,11 @@ dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
 });
 
 // QR Code page
-dashboard.get("/qr/:slug", authMiddleware, async (c) => {
+dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
   const { slug } = c.req.param();
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
 
   const link = await getLinkFromDB(c.env.DB, slug);
   if (!link) {
@@ -903,7 +946,8 @@ dashboard.get("/qr/:slug", authMiddleware, async (c) => {
     DashboardLayout({
       title: `QR Code: ${slug}`,
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       scripts: ['/qr.js'],
       children: html`
         <script>window.qrSlug = '${slug}';</script>
@@ -919,7 +963,7 @@ dashboard.get("/qr/:slug", authMiddleware, async (c) => {
         <div class="actions">
           <button class="btn" onclick="downloadQRCode()">Download QR Code</button>
           <button class="btn" onclick="window.print()">Print QR Code</button>
-          <a href="/links/view/${slug}" class="btn btn-secondary">Back to Link</a>
+          <a href="/dashboard/links/view/${slug}" class="btn btn-secondary">Back to Link</a>
         </div>
 
         <p class="info-text">
@@ -969,6 +1013,8 @@ dashboard.get("/q/:slug", async (c) => {
 // Analytics dashboard  
 dashboard.get("/analytics", authMiddleware, async (c) => {
   const email = c.get("userEmail");
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");
   const slugFilter = c.req.query("slug");
 
   // Query R2 SQL for analytics data
@@ -1270,7 +1316,8 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
     DashboardLayout({
       title: "Analytics Dashboard",
       email: email,
-      isAdmin: user?.is_admin,
+      userName: userName,
+      isAdmin: isAdmin,
       styles: `
         .stat-grid {
           display: grid;
@@ -1337,7 +1384,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           <div class="card">
             <h2>Analytics for: ${slugFilter}</h2>
             <p>Filtering data for this outie only.</p>
-            <a href="/analytics" class="btn btn-secondary">View All Links</a>
+            <a href="/dashboard/analytics" class="btn btn-secondary">View All Links</a>
           </div>
         ` : html`
           <div class="card">
@@ -1545,3 +1592,5 @@ dashboard.post("/api/preview", authMiddleware, async (c) => {
 });
 
 export default dashboard;
+  const userName = c.get("userName");
+  const isAdmin = c.get("isAdmin");

@@ -26,7 +26,7 @@ const app = new Hono<{ Bindings: CloudflareBindings; Variables: Variables }>();
 // Mount route modules
 app.route("/", tracking);
 app.route("/", auth);
-app.route("/", dashboard);
+app.route("/dashboard", dashboard);
 
 
 // Public link viewing page with tracking

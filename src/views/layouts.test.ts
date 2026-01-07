@@ -55,9 +55,9 @@ describe("Layout Components", () => {
       expect(htmlString).toContain("<!DOCTYPE html>");
       expect(htmlString).toContain('<link rel="stylesheet" href="/styles.css">');
       expect(htmlString).toContain('<body class="dashboard-layout">');
-      expect(htmlString).toContain("Logged in as: test@example.com");
+      expect(htmlString).toContain("Welcome, test");
       expect(htmlString).toContain('<a href="/dashboard">Dashboard</a>');
-      expect(htmlString).toContain('<a href="/analytics">Analytics</a>');
+      expect(htmlString).toContain('<a href="/dashboard/analytics">Analytics</a>');
       expect(htmlString).toContain('<a href="/logout">Logout</a>');
     });
 
@@ -70,7 +70,7 @@ describe("Layout Components", () => {
       });
 
       const htmlString = result.toString();
-      expect(htmlString).toContain('<a href="/admin">Admin</a>');
+      expect(htmlString).toContain('<a href="/dashboard/admin">Admin</a>');
     });
 
     it("should not show admin link when user is not admin", () => {
@@ -82,7 +82,7 @@ describe("Layout Components", () => {
       });
 
       const htmlString = result.toString();
-      expect(htmlString).not.toContain('<a href="/admin">Admin</a>');
+      expect(htmlString).not.toContain('<a href="/dashboard/admin">Admin</a>');
     });
 
     it("should include scripts when provided", () => {
@@ -98,11 +98,12 @@ describe("Layout Components", () => {
       expect(htmlString).toContain('<script src="/custom.js"></script>');
     });
 
-    it("should properly escape email address", () => {
-      const maliciousEmail = "test@example.com<script>alert('xss')</script>";
+    it("should properly escape user name", () => {
+      const maliciousName = "Test<script>alert('xss')</script>";
       const result = DashboardLayout({
         title: "Dashboard",
-        email: maliciousEmail,
+        email: "test@example.com",
+        userName: maliciousName,
         children: html`<div>Content</div>`,
       });
 
@@ -284,11 +285,12 @@ describe("Layout Components", () => {
       const result = DashboardLayout({
         title: "Test",
         email: "user+test@example.com",
+        userName: "Test User",
         children: html`<div>Content</div>`,
       });
 
       const htmlString = result.toString();
-      expect(htmlString).toContain("user+test@example.com");
+      expect(htmlString).toContain("Test User");
     });
   });
 });

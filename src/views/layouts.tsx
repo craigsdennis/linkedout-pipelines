@@ -30,11 +30,13 @@ export const BaseLayout = (props: {
 export const DashboardLayout = (props: { 
   title: string; 
   email: string;
+  userName?: string;
   isAdmin?: boolean;
   children: any;
   styles?: string;
   scripts?: string[];
 }) => {
+  const displayName = props.userName || props.email.split('@')[0];
   return html`<!DOCTYPE html>
 <html>
   <head>
@@ -49,10 +51,10 @@ export const DashboardLayout = (props: {
     <div class="header">
       <h1>${props.title}</h1>
       <div class="nav">
-        <span>Logged in as: ${props.email}</span>
+        <span>Welcome, ${displayName}</span>
         <a href="/dashboard">Dashboard</a>
-        <a href="/analytics">Analytics</a>
-        ${props.isAdmin ? html`<a href="/admin">Admin</a>` : ''}
+        <a href="/dashboard/analytics">Analytics</a>
+        ${props.isAdmin ? html`<a href="/dashboard/admin">Admin</a>` : ''}
         <a href="/logout">Logout</a>
       </div>
     </div>
