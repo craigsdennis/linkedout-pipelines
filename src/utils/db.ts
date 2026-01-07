@@ -10,7 +10,7 @@ import type { User, Link, LinkWithMaintainers, LinkMaintainer, Theme } from "../
 
 export async function getUser(email: string
 ): Promise<User | null> {
-  const result = await db
+  const result = await env.DB
     .prepare("SELECT email, is_admin, created_at FROM users WHERE email = ?")
     .bind(email)
     .first<{
@@ -37,7 +37,7 @@ export async function createUser(email: string,
     created_at: new Date().toISOString(),
   };
 
-  await db
+  await env.DB
     .prepare(
       "INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)"
     )
@@ -53,7 +53,7 @@ export async function deleteUser(email: string
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  const result = await db
+  const result = await env.DB
     .prepare("SELECT email, is_admin, created_at FROM users ORDER BY created_at DESC")
     .all<{
       email: string;
@@ -74,7 +74,7 @@ export async function getAllUsers(): Promise<User[]> {
 
 export async function getLink(slug: string
 ): Promise<Link | null> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM links WHERE slug = ?"
     )
@@ -106,10 +106,10 @@ export async function getLink(slug: string
 
 export async function getLinkWithMaintainers(slug: string
 ): Promise<LinkWithMaintainers | null> {
-  const link = await getLink(db, slug);
+  const link = await getLink(slug);
   if (!link) return null;
 
-  const maintainers = await getLinkMaintainers(db, slug);
+  const maintainers = await getLinkMaintainers(slug);
 
   return {
     ...link,
@@ -128,7 +128,7 @@ export async function createLink(link: Omit<Link, "created_at" | "updated_at">,
   };
 
   // Insert link
-  await db
+  await env.DB
     .prepare(
       "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
@@ -145,7 +145,7 @@ export async function createLink(link: Omit<Link, "created_at" | "updated_at">,
     .run();
 
   // Add creator as first maintainer
-  await addMaintainer(db, fullLink.slug, maintainerEmail, maintainerEmail);
+  await addMaintainer(fullLink.slug, maintainerEmail, maintainerEmail);
 
   return fullLink;
 }
@@ -181,7 +181,7 @@ export async function updateLink(slug: string,
   values.push(now);
   values.push(slug);
 
-  await db
+  await env.DB
     .prepare(
       `UPDATE links SET ${setClauses.join(", ")} WHERE slug = ?`
     )
@@ -196,7 +196,7 @@ export async function deleteLink(slug: string
 
 export async function getUserLinks(email: string
 ): Promise<Link[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       `SELECT DISTINCT l.slug, l.title, l.content, l.theme_id, l.created_by, l.created_at, l.updated_at, l.custom_css
        FROM links l
@@ -235,7 +235,7 @@ export async function getUserLinks(email: string
 export async function canUserAccessLink(slug: string,
   email: string
 ): Promise<boolean> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
     )
@@ -251,7 +251,7 @@ export async function addMaintainer(slug: string,
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  await db
+  await env.DB
     .prepare(
       "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
     )
@@ -262,7 +262,7 @@ export async function addMaintainer(slug: string,
 export async function removeMaintainer(slug: string,
   email: string
 ): Promise<void> {
-  await db
+  await env.DB
     .prepare(
       "DELETE FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
     )
@@ -272,7 +272,7 @@ export async function removeMaintainer(slug: string,
 
 export async function getLinkMaintainers(slug: string
 ): Promise<LinkMaintainer[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT link_slug, user_email, added_at, added_by FROM link_maintainers WHERE link_slug = ? ORDER BY added_at ASC"
     )
@@ -296,7 +296,7 @@ export async function getLinkMaintainers(slug: string
 
 export async function getUserAccessibleSlugs(email: string
 ): Promise<string[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT link_slug FROM link_maintainers WHERE user_email = ? ORDER BY added_at DESC"
     )
@@ -312,7 +312,7 @@ export async function getUserAccessibleSlugs(email: string
 
 export async function getTheme(themeId: string
 ): Promise<Theme | null> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes WHERE id = ?"
     )
@@ -343,7 +343,7 @@ export async function getTheme(themeId: string
 }
 
 export async function getAllThemes(): Promise<Theme[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes ORDER BY name ASC"
     )
@@ -373,7 +373,7 @@ export async function getAllThemes(): Promise<Theme[]> {
 }
 
 export async function getPublicThemes(): Promise<Theme[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes WHERE is_public = 1 ORDER BY name ASC"
     )
@@ -404,7 +404,7 @@ export async function getPublicThemes(): Promise<Theme[]> {
 
 export async function getUserThemes(email: string
 ): Promise<Theme[]> {
-  const result = await db
+  const result = await env.DB
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes WHERE created_by = ? OR is_public = 1 ORDER BY name ASC"
     )
@@ -442,7 +442,7 @@ export async function createTheme(theme: Omit<Theme, "created_at">
     created_at: now,
   };
 
-  await db
+  await env.DB
     .prepare(
       "INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
@@ -492,7 +492,7 @@ export async function updateTheme(themeId: string,
 
   values.push(themeId);
 
-  await db
+  await env.DB
     .prepare(`UPDATE themes SET ${setClauses.join(", ")} WHERE id = ?`)
     .bind(...values)
     .run();
