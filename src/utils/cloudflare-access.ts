@@ -4,8 +4,12 @@
  */
 
 export interface CloudflareAccessJWT {
-  name: string;
   email: string;
+  name?: string; // Optional - may not be present in all identity providers
+  sub?: string; // Subject (user ID)
+  country?: string;
+  device_id?: string;
+  identity_nonce?: string;
   groups?: Array<{
     id: number;
     name: string;
@@ -14,6 +18,8 @@ export interface CloudflareAccessJWT {
   aud?: string[];
   iat?: number;
   exp?: number;
+  iss?: string;
+  type?: string;
 }
 
 /**
@@ -33,10 +39,16 @@ export function decodeCloudflareAccessJWT(jwt: string): CloudflareAccessJWT | nu
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(base64));
     
-    // Basic validation
-    if (!payload.email || !payload.name) {
-      console.error('JWT missing required fields (email or name)');
+    // Basic validation - email is required, name is optional
+    if (!payload.email) {
+      console.error('JWT missing required field: email');
       return null;
+    }
+    
+    // If name is not present, derive it from email
+    if (!payload.name) {
+      console.log('JWT missing name field, deriving from email');
+      payload.name = payload.email.split('@')[0]; // Use email username as fallback
     }
     
     // Check expiration
@@ -68,8 +80,11 @@ export function getUserFromAccessJWT(jwtHeader: string | undefined): {
     return null;
   }
   
+  // Ensure name is always present - use email username as fallback
+  const name = payload.name || payload.email.split('@')[0];
+  
   return {
     email: payload.email,
-    name: payload.name,
+    name: name,
   };
 }

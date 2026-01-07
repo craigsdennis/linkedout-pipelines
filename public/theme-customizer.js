@@ -146,7 +146,7 @@ async function updatePreview() {
 
   try {
     // Call API to render markdown + CSS
-    const response = await fetch('/api/preview', {
+    const response = await fetch('/dashboard/api/preview', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
