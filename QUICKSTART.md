@@ -1,136 +1,253 @@
 # Quick Start Guide
 
-Follow these steps to get LinkedOut running locally.
+Get LinkedOut running in under 10 minutes!
 
-## 1. Install Dependencies
+## Prerequisites
+
+- Cloudflare account ([sign up free](https://dash.cloudflare.com/sign-up))
+- Node.js 18+
+- GitHub account (for authentication)
+
+## 1. Clone & Install
 
 ```bash
+git clone https://github.com/yourusername/linkedout-pipelines
+cd linkedout-pipelines
 npm install
+npx wrangler login
 ```
 
-## 2. Create Your Admin User
-
-Replace `your@email.com` with your actual email address:
+## 2. Create Database
 
 ```bash
-npx wrangler kv key put --binding USERS "user:your@email.com" \
-  '{"email":"your@email.com","created_at":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","is_admin":true}' \
-  --preview false
+# Create D1 database
+npx wrangler d1 create linkedout-db
+
+# Copy the database_id from output and update wrangler.jsonc:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "linkedout-db"
+# database_id = "YOUR_DATABASE_ID_HERE"
+
+# Apply migrations
+npx wrangler d1 migrations apply linkedout-db --remote
 ```
 
-## 3. Start the Development Server
+## 3. Create Your Admin User
 
 ```bash
-npm run dev
+# Replace with your actual email
+npx wrangler d1 execute linkedout-db --remote \
+  --command "INSERT INTO users (email, is_admin, created_at) VALUES ('your@email.com', 1, datetime('now'))"
 ```
 
-The app will be available at http://localhost:8787
+## 4. Setup Cloudflare Access
 
-## 4. Test the Application
+This is required for authentication to work:
 
-### Login Flow
+1. Go to [Zero Trust Dashboard](https://one.dash.cloudflare.com/) → **Access** → **Applications**
+2. Click **Add an Application** → **Self-hosted**
+3. **Application Configuration:**
+   - Name: `LinkedOut`
+   - Session Duration: `24 hours` (or your preference)
+   - Application domain: `your-subdomain.workers.dev` (you'll get this after first deploy)
+   - Path: `/dashboard`
+4. **Add GitHub Identity Provider** (if not already added):
+   - Go to **Settings** → **Authentication** → **Add new**
+   - Select **GitHub**
+   - Follow GitHub OAuth app setup
+5. **Create Access Policy:**
+   - Policy name: `Allow GitHub Users`
+   - Action: `Allow`
+   - Configure rule: `Emails` → Your email (or use GitHub org rule)
+6. **Important**: In Application settings, ensure **"Send Cf-Access-JWT-Assertion header"** is enabled
 
-1. Go to http://localhost:8787
-2. Click "Login"
-3. Enter your email address (the one you added as admin)
-4. You'll see a magic link on screen (in production, this would be emailed)
-5. Click the magic link to login
-
-### Create a Outie
-
-1. From the dashboard, click "Create New Link"
-2. Enter a slug (e.g., `my-first-talk`)
-3. Add markdown content with links:
-   ```markdown
-   # My Talk Title
-   
-   Here are the resources from my talk:
-   
-   - [Cloudflare Workers](https://workers.dev)
-   - [Hono Framework](https://hono.dev)
-   - [TypeScript](https://typescriptlang.org)
-   ```
-4. Click "Create Outie"
-
-### View Your Link
-
-1. Your link will be at: http://localhost:8787/out/my-first-talk
-2. Open it in a new tab to see the rendered page
-3. Click any of the links - they'll be tracked!
-
-### Generate QR Code
-
-1. From the link details page, click "View QR Code"
-2. You'll see a QR code that redirects to your outie
-3. Scanning the QR code will track it separately as a "qr_scan" event
-
-### Add Other Users (Admin Only)
-
-1. Go to the Admin panel (link in dashboard nav)
-2. Enter an email address
-3. Optionally check "Admin" to give them admin privileges
-4. Click "Add User"
-
-## 5. Deploy to Production
-
-When you're ready to deploy:
+## 5. Deploy Worker
 
 ```bash
 npm run deploy
 ```
 
-Your app will be deployed to `linkedout-pipelines.YOURSUBDOMAIN.workers.dev`
+Your app will be deployed to: `https://linkedout-pipelines.your-subdomain.workers.dev`
 
-## Completing the Pipeline Setup
+## 6. Update Cloudflare Access Domain
 
-To enable analytics, you need to complete the pipeline sink configuration. See SETUP.md for detailed instructions on:
+Now that you have your Worker URL, go back to Cloudflare Access and update the application domain to match your actual Worker URL.
 
-1. Creating the correct R2 API token
-2. Configuring the pipeline sink
-3. Connecting the stream to the sink
-4. Querying data with R2 SQL
+## 7. Test Authentication
 
-## Testing Without Pipeline
+1. Visit `https://your-worker-url.workers.dev/dashboard`
+2. You'll be redirected to GitHub OAuth
+3. Authenticate with GitHub
+4. You should see your dashboard!
 
-You can use the app fully without the pipeline configured - the only difference is:
+## 8. Create Your First Outie
 
-- ✅ Outies work
-- ✅ Authentication works  
-- ✅ QR codes work
-- ✅ Click tracking events are written to the stream
-- ❌ Analytics dashboard shows placeholder data (waiting for sink configuration)
+1. Click **Create New Outie**
+2. Enter a slug: `my-first-talk`
+3. Choose a theme: `Default` (or try others!)
+4. Add markdown content:
+   ```markdown
+   # Welcome to My Talk
+   
+   Here are the resources I mentioned:
+   
+   - [Cloudflare Workers](https://workers.dev)
+   - [Hono Framework](https://hono.dev)
+   - [TypeScript](https://typescriptlang.org)
+   ```
+5. Click **Create Outie**
 
-Once the pipeline sink is configured, events will be queryable via R2 SQL!
+## 9. View Your Outie
 
-## Troubleshooting
-
-### "Access Denied" when logging in
-
-Make sure you added your email as a user in step 2.
-
-### Outie shows 404
-
-Check that:
-1. The slug matches what you created (lowercase, no spaces)
-2. The link was successfully created (check the dashboard)
-
-### Dev server won't start
+Visit: `https://your-worker-url.workers.dev/out/my-first-talk`
 
 Try:
+- Click on the links (they'll be tracked!)
+- Press `Q` to see the QR code
+- Download the QR code as PNG
+
+## 10. Setup Analytics Pipeline (Optional)
+
+For analytics to work, you need to setup a Pipeline. This is optional but recommended.
+
+### Create R2 Bucket & API Token
+
 ```bash
-npx wrangler login
-npm run dev
+# Create bucket with Data Catalog enabled
+npx wrangler r2 bucket create linkedout-data-catalog --jurisdiction eu
+
+# Create R2 API token at: https://dash.cloudflare.com/r2/api-tokens
+# Save the token value
+export R2_API_TOKEN="your_token_here"
+
+# Store as Worker secret
+npx wrangler secret put R2_API_TOKEN
+# Paste your token when prompted
 ```
 
-### Types are out of sync
+### Create Pipeline Components
 
-Regenerate types:
 ```bash
-npm run cf-typegen
+# Create stream
+npx wrangler pipelines streams create click_events_v6 \
+  --schema-file schema.json \
+  --http-enabled true \
+  --http-auth false
+
+# Create sink
+npx wrangler pipelines sinks create click_events_sink_v6 \
+  --type r2-data-catalog \
+  --bucket linkedout-data-catalog \
+  --namespace default \
+  --table click_events_v6 \
+  --catalog-token "$R2_API_TOKEN" \
+  --compression zstd \
+  --roll-size 100 \
+  --roll-interval 300
+
+# Create pipeline
+npx wrangler pipelines create click_events_pipeline_v6 \
+  --sql "INSERT INTO click_events_sink_v6 SELECT * FROM click_events_v6"
+
+# Get the pipeline ID
+npx wrangler pipelines list
+```
+
+### Update Configuration
+
+Update `wrangler.jsonc` with the pipeline ID:
+
+```jsonc
+{
+  "pipelines": [
+    {
+      "binding": "CLICK_STREAM",
+      "pipeline": "your-pipeline-id-here"
+    }
+  ],
+  "vars": {
+    "ACCOUNT_ID": "your-account-id"
+  }
+}
+```
+
+### Redeploy
+
+```bash
+npm run deploy
+```
+
+### Wait for Data
+
+- Click some links in your outie
+- Wait 5-10 minutes (pipeline batches every 300 seconds)
+- Go to Dashboard → Analytics
+- You should see click data!
+
+## Common Issues
+
+### "No valid Cloudflare Access JWT found"
+
+- Make sure Cloudflare Access is configured for your Worker URL
+- Verify the application path is `/dashboard` or `/dashboard/*`
+- Check that "Send Cf-Access-JWT-Assertion header" is enabled
+- Try logging out and back in: visit `/logout` then `/dashboard`
+
+### "User not found" or "Access denied"
+
+- Make sure you created your user in step 3
+- Verify the email matches what GitHub returns
+- Check with: `npx wrangler d1 execute linkedout-db --remote --command "SELECT * FROM users"`
+
+### Redirect loop between /login and /dashboard
+
+- This should be fixed in the latest version
+- Try visiting `/login` directly - you should see a landing page with a button
+- If loop persists, check Cloudflare Access configuration
+
+### Analytics showing "No data yet"
+
+- Pipeline takes 5-10 minutes to batch and write data
+- Make sure you completed step 10 (Pipeline setup)
+- Check Worker logs: `npx wrangler tail`
+- Verify R2 API token is set: `npx wrangler secret list`
+
+### Markdown preview not working
+
+- Check browser console for errors
+- Should be calling `/dashboard/api/preview`
+- Try refreshing the page
+
+## Development Commands
+
+```bash
+npm run dev              # Local dev server (http://localhost:8787)
+npm test                 # Run tests
+npm run deploy           # Deploy to production
+npx tsc --noEmit         # Type check
+npx wrangler tail        # View live logs
+npx wrangler d1 execute  # Run SQL commands
 ```
 
 ## Next Steps
 
-- Read [README.md](./README.md) for architectural details
-- Read [SETUP.md](./SETUP.md) for complete pipeline setup
-- Check out the [Cloudflare Workers docs](https://developers.cloudflare.com/workers/)
+- **Add maintainers**: Share link ownership with co-presenters
+- **Try different themes**: Edit an outie and change the theme
+- **Explore analytics**: Filter by slug, view geographic data
+- **Create more outies**: Each talk/presentation gets its own
+- **Customize themes**: Create your own theme with CSS variables (coming soon)
+
+## Learn More
+
+- [README.md](./README.md) - Complete documentation
+- [AGENTS.md](./AGENTS.md) - AI agent guidelines for development
+- [truth-window/](./truth-window/) - Development session logs
+
+## Get Help
+
+- Check [truth-window/09-cloudflare-access-github-auth.md](./truth-window/09-cloudflare-access-github-auth.md) for auth troubleshooting
+- Review Worker logs: `npx wrangler tail`
+- Check D1 data: `npx wrangler d1 execute linkedout-db --remote --command "SELECT * FROM users"`
+
+Happy sharing! 🚀
