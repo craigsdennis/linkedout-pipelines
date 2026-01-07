@@ -12,7 +12,36 @@ export const authMiddleware = async (c: any, next: any) => {
   
   if (!userInfo) {
     console.error('No valid Cloudflare Access JWT found');
-    return c.redirect("/login");
+    console.error('Headers:', Object.fromEntries(c.req.raw.headers.entries()));
+    return c.html(
+      `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authentication Required - LinkedOut</title>
+          <style>
+            body { font-family: system-ui; max-width: 600px; margin: 100px auto; padding: 20px; text-align: center; }
+            h1 { color: #f38020; }
+            p { color: #666; line-height: 1.6; }
+            .error { background: #fee; border: 1px solid #fcc; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>🔒 Authentication Required</h1>
+          <div class="error">
+            <p><strong>No Cloudflare Access JWT found</strong></p>
+            <p>This application requires Cloudflare Access authentication.</p>
+          </div>
+          <p>If you're seeing this error:</p>
+          <ul style="text-align: left;">
+            <li>Make sure Cloudflare Access is configured for this application</li>
+            <li>Check that your Access policy includes this route</li>
+            <li>Try logging out and logging back in</li>
+          </ul>
+          <p><a href="https://craigsone.cloudflareaccess.com/cdn-cgi/access/logout">Logout from Cloudflare Access</a></p>
+        </body>
+      </html>`,
+      401
+    );
   }
   
   // Check if user exists, create if first login

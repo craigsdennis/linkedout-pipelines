@@ -209,11 +209,14 @@ app.get("/q/:slug", async (c) => {
 
 // Home page
 app.get("/", async (c) => {
-  const token = getCookie(c, "auth_token");
-  let email: string | null = null;
-
-  if (token) {
-    email = await verifyToken(token);
+  // Check if user is authenticated via Cloudflare Access
+  const jwtHeader = c.req.header('Cf-Access-Jwt-Assertion');
+  let isAuthenticated = false;
+  
+  if (jwtHeader) {
+    const { getUserFromAccessJWT } = await import("./utils/cloudflare-access");
+    const userInfo = getUserFromAccessJWT(jwtHeader);
+    isAuthenticated = !!userInfo;
   }
 
   // Get map data for public showcase
@@ -255,9 +258,9 @@ app.get("/", async (c) => {
         <div class="hero">
           <h1>LinkedOut</h1>
           <p>Share your links after talks and track every click with analytics</p>
-          ${email 
+          ${isAuthenticated 
             ? html`<a href="/dashboard" class="cta">Go to Dashboard</a>`
-            : html`<a href="/login" class="cta">Get Started</a>`
+            : html`<a href="/dashboard" class="cta">Get Started</a>`
           }
         </div>
         
