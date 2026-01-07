@@ -23,7 +23,7 @@ tracking.post("/api/track", async (c) => {
   }
 
   const slug = match[1];
-  const link = await getLink(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.body(null, 204);
   }
