@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { User } from "../types";
-import { getUserFromDB, createUserInDB } from "./db";
+import { getUser, createUser } from "./db";
 
 /**
  * Get user from D1 database by email

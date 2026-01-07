@@ -7,7 +7,7 @@ import { waitUntil } from "cloudflare:workers";
 import QRCode from "qrcode";
 import type { ClickEvent } from "./types";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
-import { getLink, getThemeFromDB } from "./utils/db";
+import { getLink, getTheme } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
 import { LeafletMap } from "./views/leaflet-map";
 import { getMapData } from "./utils/map-data";
