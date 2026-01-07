@@ -14,17 +14,17 @@ import {
   getLink,
   getLinkWithMaintainers,
   createLink,
-  updateLinkInDB,
-  deleteLinkFromDB,
+  updateLink,
+  deleteLink,
   canUserAccessLink,
   addMaintainerToDB,
-  removeMaintainerFromDB,
+  removeMaintainer,
   getLinkMaintainers,
   getUserAccessibleSlugs,
-  getAllUsersFromDB,
-  deleteUserFromDB,
-  getPublicThemesFromDB,
-  getThemeFromDB,
+  getAllUsers,
+  deleteUser,
+  getPublicThemes,
+  getTheme,
 } from "../utils/db";
 
 type Variables = {
@@ -85,7 +85,7 @@ dashboard.get("/", authMiddleware, async (c) => {
   const isAdmin = c.get("isAdmin");
 
   // Get user's accessible links from D1
-  const userLinks = await getUserLinks(c.env.DB, email);
+  const userLinks = await getUserLinks(email);
 
   return c.html(
     DashboardLayout({
@@ -550,13 +550,13 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
   const userName = c.get("userName");
   const isAdmin = c.get("isAdmin");
 
-  const linkWithMaintainers = await getLinkWithMaintainers(c.env.DB, slug);
+  const linkWithMaintainers = await getLinkWithMaintainers(slug);
   if (!linkWithMaintainers) {
     return c.html("Link not found", 404);
   }
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -678,7 +678,7 @@ dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
   const isAdmin = c.get("isAdmin");
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -697,7 +697,7 @@ dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
   }
 
   // Check if already a maintainer
-  const existingMaintainer = await canUserAccessLink(c.env.DB, slug, newMaintainerEmail);
+  const existingMaintainer = await canUserAccessLink(slug, newMaintainerEmail);
   if (existingMaintainer) {
     return c.html("User is already a maintainer", 400);
   }
@@ -714,7 +714,7 @@ dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
   const isAdmin = c.get("isAdmin");
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -727,7 +727,7 @@ dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
   }
 
   // Check if this is the last maintainer
-  const maintainers = await getLinkMaintainers(c.env.DB, slug);
+  const maintainers = await getLinkMaintainers(slug);
   if (maintainers.length <= 1) {
     return c.html("Cannot remove the last maintainer", 400);
   }
@@ -749,7 +749,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
   }
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -903,7 +903,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
   }
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -941,7 +941,7 @@ dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
   }
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -964,7 +964,7 @@ dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
   }
 
   // Check if user has access
-  const hasAccess = await canUserAccessLink(c.env.DB, slug, email);
+  const hasAccess = await canUserAccessLink(slug, email);
   if (!hasAccess) {
     return c.html("Access denied", 403);
   }
@@ -1091,14 +1091,14 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
     
     if (slugFilter) {
       // Single slug filter - check if user has access
-      const hasAccess = await canUserAccessLink(c.env.DB, slugFilter, email);
+      const hasAccess = await canUserAccessLink(slugFilter, email);
       if (!hasAccess) {
         throw new Error("Access denied to this link");
       }
       whereClause = `WHERE slug = '${slugFilter}'`;
     } else {
       // All user's slugs - get from D1
-      const userSlugs = await getUserAccessibleSlugs(c.env.DB, email);
+      const userSlugs = await getUserAccessibleSlugs(email);
       console.log("User accessible slugs:", userSlugs);
       
       if (userSlugs.length === 0) {
