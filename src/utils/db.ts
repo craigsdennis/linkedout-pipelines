@@ -498,7 +498,7 @@ export async function updateTheme(themeId: string,
     .run();
 }
 
-export async function deleteThemeFromDB(themeId: string
+export async function deleteTheme(themeId: string
 ): Promise<void> {
   await env.DB.prepare("DELETE FROM themes WHERE id = ?").bind(themeId).run();
 }
