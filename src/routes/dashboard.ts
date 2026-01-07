@@ -1592,5 +1592,3 @@ dashboard.post("/api/preview", authMiddleware, async (c) => {
 });
 
 export default dashboard;
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
