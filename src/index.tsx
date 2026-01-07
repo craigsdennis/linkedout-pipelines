@@ -6,7 +6,6 @@ import { html, raw } from "hono/html";
 import { waitUntil } from "cloudflare:workers";
 import QRCode from "qrcode";
 import type { ClickEvent } from "./types";
-import { verifyToken } from "./utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
 import { getLinkFromDB, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";

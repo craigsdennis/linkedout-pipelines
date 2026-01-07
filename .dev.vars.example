@@ -5,3 +5,4 @@
 # Get this from: https://dash.cloudflare.com/?to=/:account/r2/api-tokens
 # Required scopes: R2 Read
 R2_API_TOKEN="your_r2_api_token_here"
+ACCOUNT_ID="your_account_id"

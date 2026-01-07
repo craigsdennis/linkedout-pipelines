@@ -64,16 +64,4 @@ export interface User {
   is_admin: boolean;
 }
 
-// Auth token stored in KV
-export interface AuthToken {
-  email: string;
-  created_at: string;
-  expires_at: string;
-}
 
-// Magic link email payload
-export interface MagicLinkEmail {
-  to: string;
-  token: string;
-  expires_in_minutes: number;
-}
