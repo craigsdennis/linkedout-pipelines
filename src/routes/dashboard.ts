@@ -11,9 +11,9 @@ import { LeafletMap } from "../views/leaflet-map";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
 import {
   getUserLinks,
-  getLinkFromDB,
+  getLink,
   getLinkWithMaintainers,
-  createLinkInDB,
+  createLink,
   updateLinkInDB,
   deleteLinkFromDB,
   canUserAccessLink,
@@ -157,7 +157,7 @@ dashboard.get("/admin", adminMiddleware, async (c) => {
   }
 
   // Get all users from D1
-  const users = await getAllUsersFromDB(c.env.DB);
+  const users = await getAllUsers();
 
   // Get map data for visualization
   let mapData;
@@ -345,7 +345,7 @@ dashboard.post("/admin/delete-user", adminMiddleware, async (c) => {
     );
   }
 
-  await deleteUserFromDB(c.env.DB, deleteEmail);
+  await deleteUser(deleteEmail);
   return c.redirect("/dashboard/admin");
 });
 
@@ -357,7 +357,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
   const user = await getUser(email);
   
   // Get available themes
-  const themes = await getPublicThemesFromDB(c.env.DB);
+  const themes = await getPublicThemes();
 
   return c.html(
     DashboardLayout({
@@ -521,13 +521,13 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
   }
 
   // Check if slug already exists
-  const existing = await getLinkFromDB(c.env.DB, slug);
+  const existing = await getLink(slug);
   if (existing) {
     return c.html("This slug is already taken. Please choose another.", 400);
   }
 
   // Create link in D1 (also adds creator as maintainer)
-  await createLinkInDB(
+  await createLink(
     c.env.DB,
     {
       slug,
@@ -577,7 +577,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
   });
 
   // Get theme info
-  const theme = await getThemeFromDB(c.env.DB, linkWithMaintainers.theme_id);
+  const theme = await getTheme(linkWithMaintainers.theme_id);
 
   return c.html(
     DashboardLayout({
@@ -702,7 +702,7 @@ dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
     return c.html("User is already a maintainer", 400);
   }
 
-  await addMaintainerToDB(c.env.DB, slug, newMaintainerEmail, email);
+  await addMaintainer(slug, newMaintainerEmail, email);
   return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
@@ -732,7 +732,7 @@ dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
     return c.html("Cannot remove the last maintainer", 400);
   }
 
-  await removeMaintainerFromDB(c.env.DB, slug, removeMaintainerEmail);
+  await removeMaintainer(slug, removeMaintainerEmail);
   return c.redirect(`/dashboard/links/view/${slug}`);
 });
 
@@ -743,7 +743,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
   const userName = c.get("userName");
   const isAdmin = c.get("isAdmin");
 
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("Link not found", 404);
   }
@@ -755,7 +755,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
   }
 
   const user = await getUser(email);
-  const themes = await getPublicThemesFromDB(c.env.DB);
+  const themes = await getPublicThemes();
 
   return c.html(
     DashboardLayout({
@@ -897,7 +897,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
   const userName = c.get("userName");
   const isAdmin = c.get("isAdmin");
 
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("Link not found", 404);
   }
@@ -918,7 +918,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
     return c.html("Content is required", 400);
   }
 
-  await updateLinkInDB(c.env.DB, slug, {
+  await updateLink(slug, {
     content,
     title,
     theme_id,
@@ -935,7 +935,7 @@ dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
   const userName = c.get("userName");
   const isAdmin = c.get("isAdmin");
 
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("Link not found", 404);
   }
@@ -946,7 +946,7 @@ dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
     return c.html("Access denied", 403);
   }
 
-  await deleteLinkFromDB(c.env.DB, slug);
+  await deleteLink(slug);
 
   return c.redirect("/dashboard");
 });
@@ -958,7 +958,7 @@ dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
   const userName = c.get("userName");
   const isAdmin = c.get("isAdmin");
 
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("Link not found", 404);
   }
@@ -1021,7 +1021,7 @@ dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
 dashboard.get("/q/:slug", async (c) => {
   const { slug } = c.req.param();
 
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("Link not found", 404);
   }
@@ -1333,7 +1333,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           // Fetch link titles from D1 for each slug
           const slugsWithTitles = await Promise.all(
             rows.map(async (row: any) => {
-              const link = await getLinkFromDB(c.env.DB, row.slug);
+              const link = await getLink(row.slug);
               return {
                 slug: row.slug,
                 title: link?.title || null,
@@ -1619,7 +1619,7 @@ dashboard.post("/api/preview", authMiddleware, async (c) => {
     const { markdown, theme_id, custom_css } = await c.req.json();
 
     // Get theme
-    const theme = await getThemeFromDB(c.env.DB, theme_id);
+    const theme = await getTheme(theme_id);
 
     // Render markdown to HTML
     const htmlContent = await marked(markdown || '# Preview\n\nStart typing to see your content...');

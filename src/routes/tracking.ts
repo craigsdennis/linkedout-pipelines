@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { waitUntil } from "cloudflare:workers";
 import type { ClickEvent } from "../types";
 import { getCfProperties } from "../utils/helpers";
-import { getLinkFromDB } from "../utils/db";
+import { getLink } from "../utils/db";
 
 const tracking = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -23,7 +23,7 @@ tracking.post("/api/track", async (c) => {
   }
 
   const slug = match[1];
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(c.env.DB, slug);
   if (!link) {
     return c.body(null, 204);
   }

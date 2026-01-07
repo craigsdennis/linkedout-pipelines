@@ -7,7 +7,7 @@ import { waitUntil } from "cloudflare:workers";
 import QRCode from "qrcode";
 import type { ClickEvent } from "./types";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "./utils/helpers";
-import { getLinkFromDB, getThemeFromDB } from "./utils/db";
+import { getLink, getThemeFromDB } from "./utils/db";
 import { BaseLayout } from "./views/layouts";
 import { LeafletMap } from "./views/leaflet-map";
 import { getMapData } from "./utils/map-data";
@@ -53,13 +53,13 @@ app.get("/out/:slug", async (c) => {
   const { slug } = c.req.param();
 
   // Get link from D1
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("<h1>404 - Link not found</h1>", 404);
   }
 
   // Get theme
-  const theme = await getThemeFromDB(c.env.DB, link.theme_id);
+  const theme = await getTheme(link.theme_id);
   const contentHtml = await marked(link.content);
 
   // Generate QR code for this page
@@ -173,7 +173,7 @@ app.get("/q/:slug", async (c) => {
   const { slug } = c.req.param();
 
   // Get link from D1
-  const link = await getLinkFromDB(c.env.DB, slug);
+  const link = await getLink(slug);
   if (!link) {
     return c.html("<h1>404 - Link not found</h1>", 404);
   }

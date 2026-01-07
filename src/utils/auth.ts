@@ -6,7 +6,7 @@ import { getUserFromDB, createUserInDB } from "./db";
  * Get user from D1 database by email
  */
 export async function getUser(email: string): Promise<User | null> {
-  return await getUserFromDB(env.DB, email);
+  return await getUser(email);
 }
 
 /**
@@ -16,5 +16,5 @@ export async function createUser(
   email: string,
   isAdmin: boolean
 ): Promise<User> {
-  return await createUserInDB(env.DB, email, isAdmin);
+  return await createUser(email, isAdmin);
 }

@@ -3,13 +3,12 @@
  * All database queries are centralized here
  */
 
+import { env } from "cloudflare:workers";
 import type { User, Link, LinkWithMaintainers, LinkMaintainer, Theme } from "../types";
 
 // ==================== USER OPERATIONS ====================
 
-export async function getUserFromDB(
-  db: D1Database,
-  email: string
+export async function getUser(email: string
 ): Promise<User | null> {
   const result = await db
     .prepare("SELECT email, is_admin, created_at FROM users WHERE email = ?")
@@ -29,9 +28,7 @@ export async function getUserFromDB(
   };
 }
 
-export async function createUserInDB(
-  db: D1Database,
-  email: string,
+export async function createUser(email: string,
   isAdmin: boolean
 ): Promise<User> {
   const user: User = {
@@ -50,14 +47,12 @@ export async function createUserInDB(
   return user;
 }
 
-export async function deleteUserFromDB(
-  db: D1Database,
-  email: string
+export async function deleteUser(email: string
 ): Promise<void> {
-  await db.prepare("DELETE FROM users WHERE email = ?").bind(email).run();
+  await env.DB.prepare("DELETE FROM users WHERE email = ?").bind(email).run();
 }
 
-export async function getAllUsersFromDB(db: D1Database): Promise<User[]> {
+export async function getAllUsers(): Promise<User[]> {
   const result = await db
     .prepare("SELECT email, is_admin, created_at FROM users ORDER BY created_at DESC")
     .all<{
@@ -77,9 +72,7 @@ export async function getAllUsersFromDB(db: D1Database): Promise<User[]> {
 
 // ==================== LINK OPERATIONS ====================
 
-export async function getLinkFromDB(
-  db: D1Database,
-  slug: string
+export async function getLink(slug: string
 ): Promise<Link | null> {
   const result = await db
     .prepare(
@@ -111,11 +104,9 @@ export async function getLinkFromDB(
   };
 }
 
-export async function getLinkWithMaintainers(
-  db: D1Database,
-  slug: string
+export async function getLinkWithMaintainers(slug: string
 ): Promise<LinkWithMaintainers | null> {
-  const link = await getLinkFromDB(db, slug);
+  const link = await getLink(db, slug);
   if (!link) return null;
 
   const maintainers = await getLinkMaintainers(db, slug);
@@ -126,9 +117,7 @@ export async function getLinkWithMaintainers(
   };
 }
 
-export async function createLinkInDB(
-  db: D1Database,
-  link: Omit<Link, "created_at" | "updated_at">,
+export async function createLink(link: Omit<Link, "created_at" | "updated_at">,
   maintainerEmail: string
 ): Promise<Link> {
   const now = new Date().toISOString();
@@ -156,14 +145,12 @@ export async function createLinkInDB(
     .run();
 
   // Add creator as first maintainer
-  await addMaintainerToDB(db, fullLink.slug, maintainerEmail, maintainerEmail);
+  await addMaintainer(db, fullLink.slug, maintainerEmail, maintainerEmail);
 
   return fullLink;
 }
 
-export async function updateLinkInDB(
-  db: D1Database,
-  slug: string,
+export async function updateLink(slug: string,
   updates: Partial<Pick<Link, "title" | "content" | "theme_id" | "custom_css">>
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -202,16 +189,12 @@ export async function updateLinkInDB(
     .run();
 }
 
-export async function deleteLinkFromDB(
-  db: D1Database,
-  slug: string
+export async function deleteLink(slug: string
 ): Promise<void> {
-  await db.prepare("DELETE FROM links WHERE slug = ?").bind(slug).run();
+  await env.DB.prepare("DELETE FROM links WHERE slug = ?").bind(slug).run();
 }
 
-export async function getUserLinks(
-  db: D1Database,
-  email: string
+export async function getUserLinks(email: string
 ): Promise<Link[]> {
   const result = await db
     .prepare(
@@ -249,9 +232,7 @@ export async function getUserLinks(
 
 // ==================== MAINTAINER OPERATIONS ====================
 
-export async function canUserAccessLink(
-  db: D1Database,
-  slug: string,
+export async function canUserAccessLink(slug: string,
   email: string
 ): Promise<boolean> {
   const result = await db
@@ -264,9 +245,7 @@ export async function canUserAccessLink(
   return result !== null;
 }
 
-export async function addMaintainerToDB(
-  db: D1Database,
-  slug: string,
+export async function addMaintainer(slug: string,
   email: string,
   addedBy: string
 ): Promise<void> {
@@ -280,9 +259,7 @@ export async function addMaintainerToDB(
     .run();
 }
 
-export async function removeMaintainerFromDB(
-  db: D1Database,
-  slug: string,
+export async function removeMaintainer(slug: string,
   email: string
 ): Promise<void> {
   await db
@@ -293,9 +270,7 @@ export async function removeMaintainerFromDB(
     .run();
 }
 
-export async function getLinkMaintainers(
-  db: D1Database,
-  slug: string
+export async function getLinkMaintainers(slug: string
 ): Promise<LinkMaintainer[]> {
   const result = await db
     .prepare(
@@ -319,9 +294,7 @@ export async function getLinkMaintainers(
   }));
 }
 
-export async function getUserAccessibleSlugs(
-  db: D1Database,
-  email: string
+export async function getUserAccessibleSlugs(email: string
 ): Promise<string[]> {
   const result = await db
     .prepare(
@@ -337,9 +310,7 @@ export async function getUserAccessibleSlugs(
 
 // ==================== THEME OPERATIONS ====================
 
-export async function getThemeFromDB(
-  db: D1Database,
-  themeId: string
+export async function getTheme(themeId: string
 ): Promise<Theme | null> {
   const result = await db
     .prepare(
@@ -371,7 +342,7 @@ export async function getThemeFromDB(
   };
 }
 
-export async function getAllThemesFromDB(db: D1Database): Promise<Theme[]> {
+export async function getAllThemes(): Promise<Theme[]> {
   const result = await db
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes ORDER BY name ASC"
@@ -401,7 +372,7 @@ export async function getAllThemesFromDB(db: D1Database): Promise<Theme[]> {
   }));
 }
 
-export async function getPublicThemesFromDB(db: D1Database): Promise<Theme[]> {
+export async function getPublicThemes(): Promise<Theme[]> {
   const result = await db
     .prepare(
       "SELECT id, name, description, css_variables, additional_css, created_by, is_public, created_at FROM themes WHERE is_public = 1 ORDER BY name ASC"
@@ -431,9 +402,7 @@ export async function getPublicThemesFromDB(db: D1Database): Promise<Theme[]> {
   }));
 }
 
-export async function getUserThemes(
-  db: D1Database,
-  email: string
+export async function getUserThemes(email: string
 ): Promise<Theme[]> {
   const result = await db
     .prepare(
@@ -465,9 +434,7 @@ export async function getUserThemes(
   }));
 }
 
-export async function createThemeInDB(
-  db: D1Database,
-  theme: Omit<Theme, "created_at">
+export async function createTheme(theme: Omit<Theme, "created_at">
 ): Promise<Theme> {
   const now = new Date().toISOString();
   const fullTheme: Theme = {
@@ -494,9 +461,7 @@ export async function createThemeInDB(
   return fullTheme;
 }
 
-export async function updateThemeInDB(
-  db: D1Database,
-  themeId: string,
+export async function updateTheme(themeId: string,
   updates: Partial<Omit<Theme, "id" | "created_at" | "created_by">>
 ): Promise<void> {
   const setClauses: string[] = [];
@@ -533,9 +498,7 @@ export async function updateThemeInDB(
     .run();
 }
 
-export async function deleteThemeFromDB(
-  db: D1Database,
-  themeId: string
+export async function deleteThemeFromDB(themeId: string
 ): Promise<void> {
-  await db.prepare("DELETE FROM themes WHERE id = ?").bind(themeId).run();
+  await env.DB.prepare("DELETE FROM themes WHERE id = ?").bind(themeId).run();
 }
