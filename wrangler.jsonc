@@ -38,9 +38,4 @@
 			"pipeline": "f87b847eaee04aef95159ac8aace0219"
 		}
 	],
-	"vars": {
-		"CATALOG_URI": "https://catalog.cloudflarestorage.com/51e28e9a83197a9f12a2e39f9477ba4e/linkedout-data-catalog",
-		"WAREHOUSE_NAME": "51e28e9a83197a9f12a2e39f9477ba4e_linkedout-data-catalog",
-		"ACCOUNT_ID": "51e28e9a83197a9f12a2e39f9477ba4e"
-	}
 }
