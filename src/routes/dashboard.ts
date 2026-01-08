@@ -1075,17 +1075,6 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
   let errorMessage: string | null = null;
 
   try {
-    // Validate required environment variables
-    if (!c.env.R2_API_TOKEN) {
-      console.error("R2_API_TOKEN not configured - cannot query analytics");
-      throw new Error("Analytics not configured");
-    }
-    
-    if (!c.env.ACCOUNT_ID) {
-      console.error("ACCOUNT_ID not configured - cannot query analytics");
-      throw new Error("Analytics not configured");
-    }
-
     // Build WHERE clause based on slug filter or user's accessible slugs
     let whereClause: string;
     
@@ -1113,7 +1102,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
 
     console.log("Analytics WHERE clause:", whereClause);
 
-    // Query for aggregate stats (using v5 table for now - will update to v6)
+    // Define all queries
     const statsQuery = `
       SELECT 
         event_type,
@@ -1123,9 +1112,71 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       GROUP BY event_type
     `;
 
-    const statsData = await queryR2SQL(statsQuery);
-    console.log("Stats query response:", JSON.stringify(statsData));
-    
+    const eventsQuery = `
+      SELECT 
+        timestamp,
+        event_type,
+        slug,
+        out,
+        link_text,
+        city,
+        region,
+        country
+      FROM default.click_events_v6
+      ${whereClause}
+      ORDER BY __ingest_ts DESC
+      LIMIT 20
+    `;
+
+    const destinationQuery = `
+      SELECT 
+        out,
+        COUNT(*)
+      FROM default.click_events_v6
+      ${whereClause}
+        AND event_type = 'click'
+        AND out IS NOT NULL
+      GROUP BY out
+      ORDER BY COUNT(*) DESC
+    `;
+
+    const linkTextQuery = `
+      SELECT 
+        link_text,
+        out,
+        COUNT(*)
+      FROM default.click_events_v6
+      ${whereClause}
+        AND event_type = 'click'
+        AND link_text IS NOT NULL
+        AND out IS NOT NULL
+      GROUP BY link_text, out
+      ORDER BY COUNT(*) DESC
+    `;
+
+    const slugQuery = !slugFilter ? `
+      SELECT 
+        slug,
+        COUNT(*)
+      FROM default.click_events_v6
+      ${whereClause}
+        AND event_type = 'click'
+      GROUP BY slug
+      ORDER BY COUNT(*) DESC
+    ` : null;
+
+    // Execute all queries in parallel
+    const [statsData, eventsData, destinationData, linkTextData, slugData] = await Promise.all([
+      queryR2SQL(statsQuery),
+      queryR2SQL(eventsQuery),
+      queryR2SQL(destinationQuery),
+      queryR2SQL(linkTextQuery),
+      slugQuery ? queryR2SQL(slugQuery) : Promise.resolve({ result: { rows: [] } }),
+    ]);
+
+    console.log("All queries completed in parallel");
+
+    // Process stats data
     const rows = statsData.result?.rows;
     if (rows && rows.length > 0) {
       hasData = true;
@@ -1143,45 +1194,13 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       }
     }
 
-    // Query for recent events
-    const eventsQuery = `
-      SELECT 
-        timestamp,
-        event_type,
-        slug,
-        out,
-        link_text,
-        city,
-        region,
-        country
-      FROM default.click_events_v6
-      ${whereClause}
-      ORDER BY __ingest_ts DESC
-      LIMIT 20
-    `;
-
-    const eventsData = await queryR2SQL(eventsQuery);
-    
+    // Process events data
     const eventRows = eventsData.result?.rows;
     if (eventRows && eventRows.length > 0) {
       recentEvents = eventRows;
     }
 
-    // Query for destination URL breakdown (clicks only)
-    const destinationQuery = `
-      SELECT 
-        out,
-        COUNT(*)
-      FROM default.click_events_v6
-      ${whereClause}
-        AND event_type = 'click'
-        AND out IS NOT NULL
-      GROUP BY out
-      ORDER BY COUNT(*) DESC
-    `;
-
-    const destinationData = await queryR2SQL(destinationQuery);
-    
+    // Process destination data
     const destRows = destinationData.result?.rows;
     if (destRows && destRows.length > 0) {
       destinationBreakdown = destRows
@@ -1193,23 +1212,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         .slice(0, 20);
     }
 
-    // Query for link text breakdown
-    const linkTextQuery = `
-      SELECT 
-        link_text,
-        out,
-        COUNT(*)
-      FROM default.click_events_v6
-      ${whereClause}
-        AND event_type = 'click'
-        AND link_text IS NOT NULL
-        AND out IS NOT NULL
-      GROUP BY link_text, out
-      ORDER BY COUNT(*) DESC
-    `;
-
-    const linkTextData = await queryR2SQL(linkTextQuery);
-    
+    // Process link text data
     const linkRows = linkTextData.result?.rows;
     if (linkRows && linkRows.length > 0) {
       linkTextBreakdown = linkRows
@@ -1222,39 +1225,24 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         .slice(0, 20);
     }
 
-    // Query for slug breakdown (only when not filtering by slug)
-    if (!slugFilter) {
-      const slugQuery = `
-        SELECT 
-          slug,
-          COUNT(*)
-        FROM default.click_events_v6
-        ${whereClause}
-          AND event_type = 'click'
-        GROUP BY slug
-        ORDER BY COUNT(*) DESC
-      `;
-
-      const slugData = await queryR2SQL(slugQuery);
+    // Process slug data (only when not filtering by slug)
+    const slugRows = slugData.result?.rows;
+    if (slugRows && slugRows.length > 0) {
+      // Fetch link titles from D1 for each slug (in parallel)
+      const slugsWithTitles = await Promise.all(
+        slugRows.map(async (row: any) => {
+          const link = await getLink(row.slug);
+          return {
+            slug: row.slug,
+            title: link?.title || null,
+            click_count: row['count(*)'] || 0
+          };
+        })
+      );
       
-      const slugRows = slugData.result?.rows;
-      if (slugRows && slugRows.length > 0) {
-        // Fetch link titles from D1 for each slug
-        const slugsWithTitles = await Promise.all(
-          slugRows.map(async (row: any) => {
-            const link = await getLink(row.slug);
-            return {
-              slug: row.slug,
-              title: link?.title || null,
-              click_count: row['count(*)'] || 0
-            };
-          })
-        );
-        
-        slugBreakdown = slugsWithTitles
-          .sort((a, b) => b.click_count - a.click_count)
-          .slice(0, 20);
-      }
+      slugBreakdown = slugsWithTitles
+        .sort((a, b) => b.click_count - a.click_count)
+        .slice(0, 20);
     }
   } catch (error) {
     console.error("Error querying R2 SQL - exception thrown:", error);
