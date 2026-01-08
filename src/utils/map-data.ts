@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { queryR2SQL } from "./r2-sql";
 
 /**
  * Location statistics for map visualization
@@ -42,7 +43,7 @@ export async function getMapData(): Promise<MapData> {
 
   // Cache miss or expired - query R2 SQL
   console.log("Cache miss or expired, querying R2 SQL for map data");
-  const mapData = await queryLocationStats(env.ACCOUNT_ID, env.R2_API_TOKEN || "");
+  const mapData = await queryLocationStats();
 
   // Store in cache with metadata
   await env.MAP_CACHE.put(
@@ -58,18 +59,7 @@ export async function getMapData(): Promise<MapData> {
  * Query R2 SQL for location statistics
  * Groups page_view events by country
  */
-async function queryLocationStats(accountId: string, apiToken: string): Promise<MapData> {
-
-  if (!accountId || !apiToken) {
-    console.error("Missing R2 SQL credentials");
-    return {
-      locations: [],
-      totalViews: 0,
-      lastUpdated: new Date().toISOString(),
-      cacheKey: MAP_CACHE_KEY,
-    };
-  }
-
+async function queryLocationStats(): Promise<MapData> {
   try {
     // Query for city-level data with lat/long (no AS aliases - R2 SQL doesn't support them)
     const query = `
@@ -91,33 +81,13 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
     `;
 
     console.log("Querying R2 SQL for map data...");
-    const response = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${accountId}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("R2 SQL query failed:", response.status, errorText);
-      throw new Error(`R2 SQL query failed: ${response.status}`);
-    }
-
-    const data = await response.json() as {
-      result?: { rows?: Array<Record<string, any>> };
-      errors?: Array<any>;
-    };
+    const data = await queryR2SQL(query);
 
     console.log("R2 SQL response:", JSON.stringify(data));
 
+    // Check for errors
     if (data.errors && data.errors.length > 0) {
-      console.error("R2 SQL query errors:", JSON.stringify(data.errors));
+      throw new Error(`R2 SQL query failed: ${JSON.stringify(data.errors)}`);
     }
 
     const rows = data.result?.rows || [];
@@ -158,7 +128,7 @@ async function queryLocationStats(accountId: string, apiToken: string): Promise<
  */
 export async function refreshMapDataCache(): Promise<MapData> {
   console.log("Manually refreshing map data cache");
-  const mapData = await queryLocationStats(env.ACCOUNT_ID, env.R2_API_TOKEN || "");
+  const mapData = await queryLocationStats();
   
   await env.MAP_CACHE.put(
     MAP_CACHE_KEY,

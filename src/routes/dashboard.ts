@@ -9,6 +9,7 @@ import { authMiddleware, adminMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import { LeafletMap } from "../views/leaflet-map";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
+import { queryR2SQL } from "../utils/r2-sql";
 import {
   getUserLinks,
   getLink,
@@ -1122,48 +1123,24 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       GROUP BY event_type
     `;
 
-    const statsResponse = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: statsQuery }),
-      }
-    );
+    const statsData = await queryR2SQL(statsQuery);
+    console.log("Stats query response:", JSON.stringify(statsData));
+    
+    const rows = statsData.result?.rows;
+    if (rows && rows.length > 0) {
+      hasData = true;
+      rows.forEach((row: any) => {
+        const count = row['count(*)'] || 0;
+        if (row.event_type === "page_view") stats.totalViews = count;
+        if (row.event_type === "click") stats.totalClicks = count;
+        if (row.event_type === "qr_scan") stats.totalQrScans = count;
+      });
 
-    if (statsResponse.ok) {
-      const statsData = await statsResponse.json() as {
-        result?: { rows?: Array<Record<string, any>> },
-        errors?: Array<any>
-      };
-      console.log("Stats query response:", JSON.stringify(statsData));
-      
-      if (statsData.errors && statsData.errors.length > 0) {
-        console.error("R2 SQL stats query errors:", JSON.stringify(statsData.errors));
+      // Calculate CTR
+      if (stats.totalViews > 0) {
+        const ctr = ((stats.totalClicks / stats.totalViews) * 100).toFixed(1);
+        stats.clickThroughRate = `${ctr}%`;
       }
-      
-      const rows = statsData.result?.rows;
-      if (rows && rows.length > 0) {
-        hasData = true;
-        rows.forEach((row: any) => {
-          const count = row['count(*)'] || 0;
-          if (row.event_type === "page_view") stats.totalViews = count;
-          if (row.event_type === "click") stats.totalClicks = count;
-          if (row.event_type === "qr_scan") stats.totalQrScans = count;
-        });
-
-        // Calculate CTR
-        if (stats.totalViews > 0) {
-          const ctr = ((stats.totalClicks / stats.totalViews) * 100).toFixed(1);
-          stats.clickThroughRate = `${ctr}%`;
-        }
-      }
-    } else {
-      const errorText = await statsResponse.text();
-      console.error("R2 SQL stats query failed:", statsResponse.status, errorText);
     }
 
     // Query for recent events
@@ -1183,28 +1160,11 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       LIMIT 20
     `;
 
-    const eventsResponse = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: eventsQuery }),
-      }
-    );
-
-    if (eventsResponse.ok) {
-      const eventsData = await eventsResponse.json() as {
-        result?: { rows?: Array<Record<string, any>> },
-        errors?: Array<any>
-      };
-      
-      const rows = eventsData.result?.rows;
-      if (rows && rows.length > 0) {
-        recentEvents = rows;
-      }
+    const eventsData = await queryR2SQL(eventsQuery);
+    
+    const eventRows = eventsData.result?.rows;
+    if (eventRows && eventRows.length > 0) {
+      recentEvents = eventRows;
     }
 
     // Query for destination URL breakdown (clicks only)
@@ -1220,34 +1180,17 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       ORDER BY COUNT(*) DESC
     `;
 
-    const destinationResponse = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: destinationQuery }),
-      }
-    );
-
-    if (destinationResponse.ok) {
-      const destinationData = await destinationResponse.json() as {
-        result?: { rows?: Array<Record<string, any>> },
-        errors?: Array<any>
-      };
-      
-      const rows = destinationData.result?.rows;
-      if (rows && rows.length > 0) {
-        destinationBreakdown = rows
-          .map((row: any) => ({
-            out: row.out,
-            click_count: row['count(*)'] || row.click_count || 0
-          }))
-          .sort((a, b) => b.click_count - a.click_count)
-          .slice(0, 20);
-      }
+    const destinationData = await queryR2SQL(destinationQuery);
+    
+    const destRows = destinationData.result?.rows;
+    if (destRows && destRows.length > 0) {
+      destinationBreakdown = destRows
+        .map((row: any) => ({
+          out: row.out,
+          click_count: row['count(*)'] || row.click_count || 0
+        }))
+        .sort((a, b) => b.click_count - a.click_count)
+        .slice(0, 20);
     }
 
     // Query for link text breakdown
@@ -1265,35 +1208,18 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       ORDER BY COUNT(*) DESC
     `;
 
-    const linkTextResponse = await fetch(
-      `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: linkTextQuery }),
-      }
-    );
-
-    if (linkTextResponse.ok) {
-      const linkTextData = await linkTextResponse.json() as {
-        result?: { rows?: Array<Record<string, any>> },
-        errors?: Array<any>
-      };
-      
-      const rows = linkTextData.result?.rows;
-      if (rows && rows.length > 0) {
-        linkTextBreakdown = rows
-          .map((row: any) => ({
-            link_text: row.link_text,
-            out: row.out,
-            click_count: row['count(*)'] || row.click_count || 0
-          }))
-          .sort((a, b) => b.click_count - a.click_count)
-          .slice(0, 20);
-      }
+    const linkTextData = await queryR2SQL(linkTextQuery);
+    
+    const linkRows = linkTextData.result?.rows;
+    if (linkRows && linkRows.length > 0) {
+      linkTextBreakdown = linkRows
+        .map((row: any) => ({
+          link_text: row.link_text,
+          out: row.out,
+          click_count: row['count(*)'] || row.click_count || 0
+        }))
+        .sort((a, b) => b.click_count - a.click_count)
+        .slice(0, 20);
     }
 
     // Query for slug breakdown (only when not filtering by slug)
@@ -1309,42 +1235,25 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         ORDER BY COUNT(*) DESC
       `;
 
-      const slugResponse = await fetch(
-        `https://api.sql.cloudflarestorage.com/api/v1/accounts/${c.env.ACCOUNT_ID}/r2-sql/query/linkedout-data-catalog`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${c.env.R2_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query: slugQuery }),
-        }
-      );
-
-      if (slugResponse.ok) {
-        const slugData = await slugResponse.json() as {
-          result?: { rows?: Array<Record<string, any>> },
-          errors?: Array<any>
-        };
+      const slugData = await queryR2SQL(slugQuery);
+      
+      const slugRows = slugData.result?.rows;
+      if (slugRows && slugRows.length > 0) {
+        // Fetch link titles from D1 for each slug
+        const slugsWithTitles = await Promise.all(
+          slugRows.map(async (row: any) => {
+            const link = await getLink(row.slug);
+            return {
+              slug: row.slug,
+              title: link?.title || null,
+              click_count: row['count(*)'] || 0
+            };
+          })
+        );
         
-        const rows = slugData.result?.rows;
-        if (rows && rows.length > 0) {
-          // Fetch link titles from D1 for each slug
-          const slugsWithTitles = await Promise.all(
-            rows.map(async (row: any) => {
-              const link = await getLink(row.slug);
-              return {
-                slug: row.slug,
-                title: link?.title || null,
-                click_count: row['count(*)'] || 0
-              };
-            })
-          );
-          
-          slugBreakdown = slugsWithTitles
-            .sort((a, b) => b.click_count - a.click_count)
-            .slice(0, 20);
-        }
+        slugBreakdown = slugsWithTitles
+          .sort((a, b) => b.click_count - a.click_count)
+          .slice(0, 20);
       }
     }
   } catch (error) {
