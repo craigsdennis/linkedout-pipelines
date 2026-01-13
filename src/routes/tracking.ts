@@ -4,7 +4,7 @@ import type { ClickEvent } from "../types";
 import { getCfProperties } from "../utils/helpers";
 import { getLink } from "../utils/db";
 
-const tracking = new Hono<{ Bindings: CloudflareBindings }>();
+const tracking = new Hono<{ Bindings: Env }>();
 
 // API endpoint for tracking clicks
 tracking.post("/api/track", async (c) => {

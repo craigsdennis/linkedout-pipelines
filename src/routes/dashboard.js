@@ -2,46 +2,20 @@ import { Hono } from "hono";
 import { html, raw } from "hono/html";
 import { marked } from "marked";
 import QRCode from "qrcode";
-import type { ClickEvent } from "../types";
-import { getUser, createUser } from "../utils/auth";
+import { getUser } from "../utils/auth";
 import { getCfProperties, getVisitorId, generateThemeCSS } from "../utils/helpers";
 import { authMiddleware, adminMiddleware } from "../middleware/auth";
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import { LeafletMap } from "../views/leaflet-map";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
 import { queryR2SQL } from "../utils/r2-sql";
-import {
-  getUserLinks,
-  getLink,
-  getLinkWithMaintainers,
-  createLink,
-  updateLink,
-  deleteLink,
-  canUserAccessLink,
-  addMaintainer,
-  removeMaintainer,
-  getLinkMaintainers,
-  getUserAccessibleSlugs,
-  getAllUsers,
-  deleteUser,
-  getPublicThemes,
-  getTheme,
-} from "../utils/db";
-
-type Variables = {
-  userEmail: string;
-  userName: string;
-  isAdmin: boolean;
-};
-
-const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
-
+import { getUserLinks, getLink, getLinkWithMaintainers, createLink, updateLink, deleteLink, canUserAccessLink, addMaintainer, removeMaintainer, getLinkMaintainers, getUserAccessibleSlugs, getAllUsers, deleteUser, getPublicThemes, getTheme, } from "../utils/db";
+const dashboard = new Hono();
 // Debug endpoint to check headers (bypasses auth middleware)
 dashboard.get("/debug-headers", async (c) => {
-  const headers = Object.fromEntries(c.req.raw.headers.entries());
-  const jwtHeader = c.req.header('Cf-Access-Jwt-Assertion');
-  
-  return c.html(`
+    const headers = Object.fromEntries(c.req.raw.headers.entries());
+    const jwtHeader = c.req.header('Cf-Access-Jwt-Assertion');
+    return c.html(`
     <!DOCTYPE html>
     <html>
       <head>
@@ -78,39 +52,35 @@ dashboard.get("/debug-headers", async (c) => {
     </html>
   `);
 });
-
 // Dashboard - user's links overview
 dashboard.get("/", authMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  // Get user's accessible links from D1
-  const userLinks = await getUserLinks(email);
-
-  return c.html(
-    DashboardLayout({
-      title: "Dashboard",
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      children: html`
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    // Get user's accessible links from D1
+    const userLinks = await getUserLinks(email);
+    return c.html(DashboardLayout({
+        title: "Dashboard",
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        children: html `
         <div class="card">
           <h2>Your Outies</h2>
           <a href="/dashboard/links/create" class="btn">Create New Outie</a>
           
-          ${userLinks.length === 0 
-            ? html`<p>No outies yet. Create your first one!</p>`
-            : html`
+          ${userLinks.length === 0
+            ? html `<p>No outies yet. Create your first one!</p>`
+            : html `
               <ul style="list-style: none; padding: 0;">
-                ${userLinks.map(link => html`
+                ${userLinks.map(link => html `
                   <li style="padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
                     <div style="flex: 1;">
-                      ${link.title ? html`
+                      ${link.title ? html `
                         <strong style="font-size: 16px;">${link.title}</strong>
                         <br />
                         <span style="color: #666; font-family: monospace; font-size: 14px;">/out/${link.slug}</span>
-                      ` : html`
+                      ` : html `
                         <strong style="font-size: 16px;">${link.slug}</strong>
                         <br />
                         <span style="color: #999; font-style: italic; font-size: 14px;">No title set</span>
@@ -129,54 +99,45 @@ dashboard.get("/", authMiddleware, async (c) => {
                   </li>
                 `)}
               </ul>
-            `
-          }
+            `}
         </div>
       `
-    })
-  );
+    }));
 });
-
 // Admin panel (protected, admin only)
 dashboard.get("/admin", adminMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-  const user = await getUser(email);
-
-  if (!user?.is_admin) {
-    return c.html(
-      BaseLayout({
-        title: "Access Denied",
-        children: html`
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const user = await getUser(email);
+    if (!user?.is_admin) {
+        return c.html(BaseLayout({
+            title: "Access Denied",
+            children: html `
           <h1>403 - Access Denied</h1>
           <p>Admin access required.</p>
           <a href="/dashboard">Back to Dashboard</a>
         `
-      }), 403
-    );
-  }
-
-  // Get all users from D1
-  const users = await getAllUsers();
-
-  // Get map data for visualization
-  let mapData;
-  try {
-    mapData = await getMapData();
-  } catch (error) {
-    console.error("Failed to load map data:", error);
-    mapData = null;
-  }
-
-  return c.html(
-    DashboardLayout({
-      title: "Admin Panel",
-      email: email,
-      userName: userName,
-      isAdmin: true,
-      children: html`
-        ${mapData ? html`
+        }), 403);
+    }
+    // Get all users from D1
+    const users = await getAllUsers();
+    // Get map data for visualization
+    let mapData;
+    try {
+        mapData = await getMapData();
+    }
+    catch (error) {
+        console.error("Failed to load map data:", error);
+        mapData = null;
+    }
+    return c.html(DashboardLayout({
+        title: "Admin Panel",
+        email: email,
+        userName: userName,
+        isAdmin: true,
+        children: html `
+        ${mapData ? html `
           <div class="card">
             ${LeafletMap({ mapData })}
             <div style="margin-top: 20px; text-align: right;">
@@ -204,24 +165,23 @@ dashboard.get("/admin", adminMiddleware, async (c) => {
               </tr>
             </thead>
             <tbody>
-              ${users.map(u => html`
+              ${users.map(u => html `
                 <tr>
                   <td>${u.email}</td>
                   <td>
-                    ${u.is_admin 
-                      ? html`<span style="background: #fce4ec; color: #c2185b; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Admin</span>` 
-                      : html`<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">User</span>`
-                    }
+                    ${u.is_admin
+            ? html `<span style="background: #fce4ec; color: #c2185b; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Admin</span>`
+            : html `<span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">User</span>`}
                   </td>
                   <td>${new Date(u.created_at).toLocaleDateString()}</td>
                   <td style="display: flex; gap: 5px;">
-                    ${u.email !== email ? html`
-                      ${u.is_admin ? html`
+                    ${u.email !== email ? html `
+                      ${u.is_admin ? html `
                         <form method="POST" action="/dashboard/admin/demote" style="display: inline;">
                           <input type="hidden" name="email" value="${u.email}" />
                           <button type="submit" class="btn" style="padding: 5px 10px; font-size: 14px; background: #f3f4f6; color: #374151;">Revoke Admin</button>
                         </form>
-                      ` : html`
+                      ` : html `
                         <form method="POST" action="/dashboard/admin/promote" style="display: inline;">
                           <input type="hidden" name="email" value="${u.email}" />
                           <button type="submit" class="btn" style="padding: 5px 10px; font-size: 14px; background: #e0f2fe; color: #0c4a6e;">Make Admin</button>
@@ -231,7 +191,7 @@ dashboard.get("/admin", adminMiddleware, async (c) => {
                         <input type="hidden" name="email" value="${u.email}" />
                         <button type="submit" class="btn-danger" style="padding: 5px 10px; font-size: 14px;">Delete</button>
                       </form>
-                    ` : html`
+                    ` : html `
                       <span style="color: #9ca3af; font-size: 12px;">(You)</span>
                     `}
                   </td>
@@ -241,90 +201,73 @@ dashboard.get("/admin", adminMiddleware, async (c) => {
           </table>
         </div>
       `
-    })
-  );
+    }));
 });
-
 // Promote user to admin
 dashboard.post("/admin/promote", adminMiddleware, async (c) => {
-  const formData = await c.req.formData();
-  const targetEmail = formData.get("email") as string;
-
-  if (!targetEmail) {
-    return c.html("Email required", 400);
-  }
-
-  // Update user's admin status in D1
-  await c.env.DB
-    .prepare("UPDATE users SET is_admin = 1 WHERE email = ?")
-    .bind(targetEmail)
-    .run();
-
-  return c.redirect("/dashboard/admin");
+    const formData = await c.req.formData();
+    const targetEmail = formData.get("email");
+    if (!targetEmail) {
+        return c.html("Email required", 400);
+    }
+    // Update user's admin status in D1
+    await c.env.DB
+        .prepare("UPDATE users SET is_admin = 1 WHERE email = ?")
+        .bind(targetEmail)
+        .run();
+    return c.redirect("/dashboard/admin");
 });
-
 // Demote admin to regular user
 dashboard.post("/admin/demote", adminMiddleware, async (c) => {
-  const currentEmail = c.get("userEmail");
-  const formData = await c.req.formData();
-  const targetEmail = formData.get("email") as string;
-
-  if (!targetEmail) {
-    return c.html("Email required", 400);
-  }
-
-  // Don't allow demoting yourself
-  if (targetEmail === currentEmail) {
-    return c.html("Cannot demote yourself", 400);
-  }
-
-  // Update user's admin status in D1
-  await c.env.DB
-    .prepare("UPDATE users SET is_admin = 0 WHERE email = ?")
-    .bind(targetEmail)
-    .run();
-
-  return c.redirect("/dashboard/admin");
+    const currentEmail = c.get("userEmail");
+    const formData = await c.req.formData();
+    const targetEmail = formData.get("email");
+    if (!targetEmail) {
+        return c.html("Email required", 400);
+    }
+    // Don't allow demoting yourself
+    if (targetEmail === currentEmail) {
+        return c.html("Cannot demote yourself", 400);
+    }
+    // Update user's admin status in D1
+    await c.env.DB
+        .prepare("UPDATE users SET is_admin = 0 WHERE email = ?")
+        .bind(targetEmail)
+        .run();
+    return c.redirect("/dashboard/admin");
 });
-
 // Clear map cache (admin only)
 dashboard.post("/admin/clear-map-cache", adminMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  try {
-    console.log("Admin clearing map cache:", email);
-    await refreshMapDataCache();
-    console.log("Map cache cleared successfully");
-  } catch (error) {
-    console.error("Failed to refresh map cache:", error);
-  }
-
-  return c.redirect("/dashboard/admin");
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    try {
+        console.log("Admin clearing map cache:", email);
+        await refreshMapDataCache();
+        console.log("Map cache cleared successfully");
+    }
+    catch (error) {
+        console.error("Failed to refresh map cache:", error);
+    }
+    return c.redirect("/dashboard/admin");
 });
-
 // Delete user (admin only)
 dashboard.post("/admin/delete-user", adminMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const formData = await c.req.formData();
-  const deleteEmail = formData.get("email") as string;
-
-  if (!deleteEmail) {
-    return c.html("Email required", 400);
-  }
-
-  // Don't allow deleting yourself
-  if (deleteEmail === email) {
-    return c.html("Cannot delete your own account", 400);
-  }
-
-  // Check if user is the sole maintainer of any links
-  const linksWhereOnlyMaintainer = await c.env.DB
-    .prepare(`
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const formData = await c.req.formData();
+    const deleteEmail = formData.get("email");
+    if (!deleteEmail) {
+        return c.html("Email required", 400);
+    }
+    // Don't allow deleting yourself
+    if (deleteEmail === email) {
+        return c.html("Cannot delete your own account", 400);
+    }
+    // Check if user is the sole maintainer of any links
+    const linksWhereOnlyMaintainer = await c.env.DB
+        .prepare(`
       SELECT DISTINCT lm.link_slug
       FROM link_maintainers lm
       WHERE lm.user_email = ?
@@ -334,39 +277,30 @@ dashboard.post("/admin/delete-user", adminMiddleware, async (c) => {
         WHERE link_slug = lm.link_slug
       ) = 1
     `)
-    .bind(deleteEmail)
-    .all();
-
-  if (linksWhereOnlyMaintainer.results && linksWhereOnlyMaintainer.results.length > 0) {
-    const orphanedLinks = linksWhereOnlyMaintainer.results.map((r: any) => r.link_slug).join(", ");
-    return c.html(
-      `Cannot delete user ${deleteEmail}. They are the only maintainer of these links: ${orphanedLinks}. 
-      Please add another maintainer or delete the links first. <a href="/dashboard/admin">Back to Admin</a>`,
-      400
-    );
-  }
-
-  await deleteUser(deleteEmail);
-  return c.redirect("/dashboard/admin");
+        .bind(deleteEmail)
+        .all();
+    if (linksWhereOnlyMaintainer.results && linksWhereOnlyMaintainer.results.length > 0) {
+        const orphanedLinks = linksWhereOnlyMaintainer.results.map((r) => r.link_slug).join(", ");
+        return c.html(`Cannot delete user ${deleteEmail}. They are the only maintainer of these links: ${orphanedLinks}. 
+      Please add another maintainer or delete the links first. <a href="/dashboard/admin">Back to Admin</a>`, 400);
+    }
+    await deleteUser(deleteEmail);
+    return c.redirect("/dashboard/admin");
 });
-
 // Create outie
 dashboard.get("/links/create", authMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-  const user = await getUser(email);
-  
-  // Get available themes
-  const themes = await getPublicThemes();
-
-  return c.html(
-    DashboardLayout({
-      title: "Create Outie",
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      children: html`
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const user = await getUser(email);
+    // Get available themes
+    const themes = await getPublicThemes();
+    return c.html(DashboardLayout({
+        title: "Create Outie",
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        children: html `
         <script id="themes-data" type="application/json">
           ${raw(JSON.stringify(themes))}
         </script>
@@ -398,7 +332,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
 
           <label for="theme_id" style="display: block; margin-bottom: 5px; font-weight: 500;">Theme</label>
           <select id="theme_id" name="theme_id" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 4px;">
-            ${themes.map(theme => html`
+            ${themes.map(theme => html `
               <option value="${theme.id}" ${theme.id === 'default' ? 'selected' : ''}>
                 ${theme.name} ${theme.description ? `- ${theme.description}` : ''}
               </option>
@@ -495,98 +429,81 @@ Here are the links from my talk:
           <button type="submit" style="margin-top: 20px;">Create Outie</button>
         </form>
       `,
-      scripts: ['/theme-customizer.js']
-    })
-  );
+        scripts: ['/theme-customizer.js']
+    }));
 });
-
 // Create link handler
 dashboard.post("/links/create", authMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-  const formData = await c.req.formData();
-  const slug = formData.get("slug") as string;
-  const title = (formData.get("title") as string) || null;
-  const content = formData.get("content") as string;
-  const theme_id = (formData.get("theme_id") as string) || "default";
-  const custom_css = (formData.get("custom_css") as string) || null;
-
-  if (!slug || !content) {
-    return c.html("Slug and content are required", 400);
-  }
-
-  // Validate slug format
-  if (!/^[a-z0-9-]+$/.test(slug)) {
-    return c.html("Invalid slug format. Use only lowercase letters, numbers, and hyphens.", 400);
-  }
-
-  // Check if slug already exists
-  const existing = await getLink(slug);
-  if (existing) {
-    return c.html("This slug is already taken. Please choose another.", 400);
-  }
-
-  // Create link in D1 (also adds creator as maintainer)
-  await createLink(
-    {
-      slug,
-      title,
-      content,
-      theme_id,
-      custom_css,
-      created_by: email,
-    },
-    email // maintainer email
-  );
-
-  return c.redirect(`/dashboard/links/view/${slug}`);
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const formData = await c.req.formData();
+    const slug = formData.get("slug");
+    const title = formData.get("title") || null;
+    const content = formData.get("content");
+    const theme_id = formData.get("theme_id") || "default";
+    const custom_css = formData.get("custom_css") || null;
+    if (!slug || !content) {
+        return c.html("Slug and content are required", 400);
+    }
+    // Validate slug format
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+        return c.html("Invalid slug format. Use only lowercase letters, numbers, and hyphens.", 400);
+    }
+    // Check if slug already exists
+    const existing = await getLink(slug);
+    if (existing) {
+        return c.html("This slug is already taken. Please choose another.", 400);
+    }
+    // Create link in D1 (also adds creator as maintainer)
+    await createLink({
+        slug,
+        title,
+        content,
+        theme_id,
+        custom_css,
+        created_by: email,
+    }, email // maintainer email
+    );
+    return c.redirect(`/dashboard/links/view/${slug}`);
 });
-
 // View/edit link
 dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const linkWithMaintainers = await getLinkWithMaintainers(slug);
-  if (!linkWithMaintainers) {
-    return c.html("Link not found", 404);
-  }
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const user = await getUser(email);
-  const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
-  const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
-  
-  // Generate QR code as SVG for the modal
-  const qrSvg = await QRCode.toString(qrTrackUrl, {
-    type: 'svg',
-    width: 400,
-    margin: 2,
-    color: {
-      dark: '#000000',
-      light: '#ffffff'
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const linkWithMaintainers = await getLinkWithMaintainers(slug);
+    if (!linkWithMaintainers) {
+        return c.html("Link not found", 404);
     }
-  });
-
-  // Get theme info
-  const theme = await getTheme(linkWithMaintainers.theme_id);
-
-  return c.html(
-    DashboardLayout({
-      title: `Link: ${slug}`,
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      scripts: ['/qr.js'],
-      children: html`
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const user = await getUser(email);
+    const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
+    const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
+    // Generate QR code as SVG for the modal
+    const qrSvg = await QRCode.toString(qrTrackUrl, {
+        type: 'svg',
+        width: 400,
+        margin: 2,
+        color: {
+            dark: '#000000',
+            light: '#ffffff'
+        }
+    });
+    // Get theme info
+    const theme = await getTheme(linkWithMaintainers.theme_id);
+    return c.html(DashboardLayout({
+        title: `Link: ${slug}`,
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        scripts: ['/qr.js'],
+        children: html `
         <script>window.qrSlug = '${slug}';</script>
         <h2>Outie: ${slug}</h2>
 
@@ -635,15 +552,15 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
             Maintainers can edit, delete, and manage this outie
           </p>
           <ul style="list-style: none; padding: 0;">
-            ${linkWithMaintainers.maintainers.map(maintainerEmail => html`
+            ${linkWithMaintainers.maintainers.map(maintainerEmail => html `
               <li style="padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                 <span>${maintainerEmail}</span>
-                ${linkWithMaintainers.maintainers.length > 1 ? html`
+                ${linkWithMaintainers.maintainers.length > 1 ? html `
                   <form method="POST" action="/dashboard/links/${slug}/remove-maintainer" style="display: inline;">
                     <input type="hidden" name="email" value="${maintainerEmail}" />
                     <button type="submit" class="btn btn-secondary" style="padding: 5px 10px; font-size: 13px;" onclick="return confirm('Remove ${maintainerEmail} as maintainer?')">Remove</button>
                   </form>
-                ` : html`
+                ` : html `
                   <span style="color: #999; font-size: 13px;">(Last maintainer)</span>
                 `}
               </li>
@@ -666,104 +583,84 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
           </div>
         </div>
       `
-    })
-  );
+    }));
 });
-
 // Add maintainer
 dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const formData = await c.req.formData();
-  const newMaintainerEmail = formData.get("email") as string;
-
-  if (!newMaintainerEmail) {
-    return c.html("Email required", 400);
-  }
-
-  // Check if user exists
-  const newUser = await getUser(newMaintainerEmail);
-  if (!newUser) {
-    return c.html("User not found. They must be registered first.", 400);
-  }
-
-  // Check if already a maintainer
-  const existingMaintainer = await canUserAccessLink(slug, newMaintainerEmail);
-  if (existingMaintainer) {
-    return c.html("User is already a maintainer", 400);
-  }
-
-  await addMaintainer(slug, newMaintainerEmail, email);
-  return c.redirect(`/dashboard/links/view/${slug}`);
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const formData = await c.req.formData();
+    const newMaintainerEmail = formData.get("email");
+    if (!newMaintainerEmail) {
+        return c.html("Email required", 400);
+    }
+    // Check if user exists
+    const newUser = await getUser(newMaintainerEmail);
+    if (!newUser) {
+        return c.html("User not found. They must be registered first.", 400);
+    }
+    // Check if already a maintainer
+    const existingMaintainer = await canUserAccessLink(slug, newMaintainerEmail);
+    if (existingMaintainer) {
+        return c.html("User is already a maintainer", 400);
+    }
+    await addMaintainer(slug, newMaintainerEmail, email);
+    return c.redirect(`/dashboard/links/view/${slug}`);
 });
-
 // Remove maintainer
 dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const formData = await c.req.formData();
-  const removeMaintainerEmail = formData.get("email") as string;
-
-  if (!removeMaintainerEmail) {
-    return c.html("Email required", 400);
-  }
-
-  // Check if this is the last maintainer
-  const maintainers = await getLinkMaintainers(slug);
-  if (maintainers.length <= 1) {
-    return c.html("Cannot remove the last maintainer", 400);
-  }
-
-  await removeMaintainer(slug, removeMaintainerEmail);
-  return c.redirect(`/dashboard/links/view/${slug}`);
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const formData = await c.req.formData();
+    const removeMaintainerEmail = formData.get("email");
+    if (!removeMaintainerEmail) {
+        return c.html("Email required", 400);
+    }
+    // Check if this is the last maintainer
+    const maintainers = await getLinkMaintainers(slug);
+    if (maintainers.length <= 1) {
+        return c.html("Cannot remove the last maintainer", 400);
+    }
+    await removeMaintainer(slug, removeMaintainerEmail);
+    return c.redirect(`/dashboard/links/view/${slug}`);
 });
-
 // Edit link
 dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const link = await getLink(slug);
-  if (!link) {
-    return c.html("Link not found", 404);
-  }
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const user = await getUser(email);
-  const themes = await getPublicThemes();
-
-  return c.html(
-    DashboardLayout({
-      title: `Edit: ${slug}`,
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      styles: `
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const link = await getLink(slug);
+    if (!link) {
+        return c.html("Link not found", 404);
+    }
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const user = await getUser(email);
+    const themes = await getPublicThemes();
+    return c.html(DashboardLayout({
+        title: `Edit: ${slug}`,
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        styles: `
         form {
           background: white;
           border: 1px solid #ddd;
@@ -805,7 +702,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           font-size: 16px;
         }
       `,
-      children: html`
+        children: html `
         <script id="themes-data" type="application/json">
           ${raw(JSON.stringify(themes))}
         </script>
@@ -817,7 +714,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           
           <label for="theme_id">Theme</label>
           <select id="theme_id" name="theme_id">
-            ${themes.map(theme => html`
+            ${themes.map(theme => html `
               <option value="${theme.id}" ${theme.id === link.theme_id ? 'selected' : ''}>
                 ${theme.name} ${theme.description ? `- ${theme.description}` : ''}
               </option>
@@ -885,114 +782,94 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           <a href="/dashboard/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
       `,
-      scripts: ['/theme-customizer.js']
-    })
-  );
+        scripts: ['/theme-customizer.js']
+    }));
 });
-
 // Edit link handler
 dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const link = await getLink(slug);
-  if (!link) {
-    return c.html("Link not found", 404);
-  }
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const formData = await c.req.formData();
-  const content = formData.get("content") as string;
-  const title = (formData.get("title") as string) || null;
-  const theme_id = formData.get("theme_id") as string;
-  const custom_css = (formData.get("custom_css") as string) || null;
-
-  if (!content) {
-    return c.html("Content is required", 400);
-  }
-
-  await updateLink(slug, {
-    content,
-    title,
-    theme_id,
-    custom_css,
-  });
-
-  return c.redirect(`/dashboard/links/view/${slug}`);
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const link = await getLink(slug);
+    if (!link) {
+        return c.html("Link not found", 404);
+    }
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const formData = await c.req.formData();
+    const content = formData.get("content");
+    const title = formData.get("title") || null;
+    const theme_id = formData.get("theme_id");
+    const custom_css = formData.get("custom_css") || null;
+    if (!content) {
+        return c.html("Content is required", 400);
+    }
+    await updateLink(slug, {
+        content,
+        title,
+        theme_id,
+        custom_css,
+    });
+    return c.redirect(`/dashboard/links/view/${slug}`);
 });
-
 // Delete link handler
 dashboard.post("/links/delete/:slug", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const link = await getLink(slug);
-  if (!link) {
-    return c.html("Link not found", 404);
-  }
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  await deleteLink(slug);
-
-  return c.redirect("/dashboard");
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const link = await getLink(slug);
+    if (!link) {
+        return c.html("Link not found", 404);
+    }
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    await deleteLink(slug);
+    return c.redirect("/dashboard");
 });
-
 // QR Code page
 dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
-  const { slug } = c.req.param();
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-
-  const link = await getLink(slug);
-  if (!link) {
-    return c.html("Link not found", 404);
-  }
-
-  // Check if user has access
-  const hasAccess = await canUserAccessLink(slug, email);
-  if (!hasAccess) {
-    return c.html("Access denied", 403);
-  }
-
-  const user = await getUser(email);
-  const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
-  // Use trackable QR URL that will record QR scans separately
-  const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
-  
-  // Generate QR code as SVG string
-  const qrSvg = await QRCode.toString(qrTrackUrl, {
-    type: 'svg',
-    width: 400,
-    margin: 2,
-    color: {
-      dark: '#000000',
-      light: '#ffffff'
+    const { slug } = c.req.param();
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const link = await getLink(slug);
+    if (!link) {
+        return c.html("Link not found", 404);
     }
-  });
-
-  return c.html(
-    DashboardLayout({
-      title: `QR Code: ${slug}`,
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      scripts: ['/qr.js'],
-      children: html`
+    // Check if user has access
+    const hasAccess = await canUserAccessLink(slug, email);
+    if (!hasAccess) {
+        return c.html("Access denied", 403);
+    }
+    const user = await getUser(email);
+    const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
+    // Use trackable QR URL that will record QR scans separately
+    const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
+    // Generate QR code as SVG string
+    const qrSvg = await QRCode.toString(qrTrackUrl, {
+        type: 'svg',
+        width: 400,
+        margin: 2,
+        color: {
+            dark: '#000000',
+            light: '#ffffff'
+        }
+    });
+    return c.html(DashboardLayout({
+        title: `QR Code: ${slug}`,
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        scripts: ['/qr.js'],
+        children: html `
         <script>window.qrSlug = '${slug}';</script>
         <h2>QR Code for: ${slug}</h2>
 
@@ -1013,97 +890,87 @@ dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
           QR code scans are tracked separately from regular clicks in your analytics.
         </p>
       `
-    })
-  );
+    }));
 });
-
 // QR code scan redirect (tracks as qr_scan)
 dashboard.get("/q/:slug", async (c) => {
-  const { slug } = c.req.param();
-
-  const link = await getLink(slug);
-  if (!link) {
-    return c.html("Link not found", 404);
-  }
-
-  // Track QR scan (NO owner_email in v6)
-  const qrScanEvent: ClickEvent = {
-    timestamp: new Date().toISOString(),
-    url: c.req.url,
-    out: null,
-    slug: link.slug,
-    visitor_id: getVisitorId(c),
-    user_agent: c.req.header("user-agent"),
-    referer: c.req.header("referer"),
-    event_type: "qr_scan",
-    ...getCfProperties(c.req.raw),
-  };
-
-  // Write to pipeline (await to ensure delivery)
-  console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
-  try {
-    await c.env.CLICK_STREAM.send([qrScanEvent]);
-    console.log("qr_scan event sent successfully");
-  } catch (err) {
-    console.error("Failed to send qr_scan event:", err);
-    console.error("Event was:", JSON.stringify(qrScanEvent));
-  }
-
-  // Redirect to the actual outie
-  return c.redirect(`/out/${slug}`);
+    const { slug } = c.req.param();
+    const link = await getLink(slug);
+    if (!link) {
+        return c.html("Link not found", 404);
+    }
+    // Track QR scan (NO owner_email in v6)
+    const qrScanEvent = {
+        timestamp: new Date().toISOString(),
+        url: c.req.url,
+        out: null,
+        slug: link.slug,
+        visitor_id: getVisitorId(c),
+        user_agent: c.req.header("user-agent"),
+        referer: c.req.header("referer"),
+        event_type: "qr_scan",
+        ...getCfProperties(c.req.raw),
+    };
+    // Write to pipeline (await to ensure delivery)
+    console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
+    try {
+        await c.env.CLICK_STREAM.send([qrScanEvent]);
+        console.log("qr_scan event sent successfully");
+    }
+    catch (err) {
+        console.error("Failed to send qr_scan event:", err);
+        console.error("Event was:", JSON.stringify(qrScanEvent));
+    }
+    // Redirect to the actual outie
+    return c.redirect(`/out/${slug}`);
 });
-
 // Analytics dashboard  
 dashboard.get("/analytics", authMiddleware, async (c) => {
-  const email = c.get("userEmail");
-  const userName = c.get("userName");
-  const isAdmin = c.get("isAdmin");
-  const slugFilter = c.req.query("slug");
-
-  // Query R2 SQL for analytics data
-  let stats = {
-    totalViews: 0,
-    totalClicks: 0,
-    totalQrScans: 0,
-    clickThroughRate: "0%",
-  };
-  let recentEvents: any[] = [];
-  let destinationBreakdown: Array<{ out: string; click_count: number }> = [];
-  let linkTextBreakdown: Array<{ link_text: string; out: string; click_count: number }> = [];
-  let slugBreakdown: Array<{ slug: string; title: string | null; click_count: number }> = [];
-  let hasData = false;
-  let errorMessage: string | null = null;
-
-  try {
-    // Build WHERE clause based on slug filter or user's accessible slugs
-    let whereClause: string;
-    
-    if (slugFilter) {
-      // Single slug filter - check if user has access
-      const hasAccess = await canUserAccessLink(slugFilter, email);
-      if (!hasAccess) {
-        throw new Error("Access denied to this link");
-      }
-      whereClause = `WHERE slug = '${slugFilter}'`;
-    } else {
-      // All user's slugs - get from D1
-      const userSlugs = await getUserAccessibleSlugs(email);
-      console.log("User accessible slugs:", userSlugs);
-      
-      if (userSlugs.length === 0) {
-        // No links yet - return empty results
-        whereClause = "WHERE slug = 'nonexistent'"; // Will return no results
-      } else {
-        // Build slug OR clause (R2 SQL doesn't support IN clause)
-        const slugConditions = userSlugs.map(s => `slug = '${s}'`).join(' OR ');
-        whereClause = `WHERE (${slugConditions})`;
-      }
-    }
-
-    console.log("Analytics WHERE clause:", whereClause);
-
-    // Define all queries
-    const statsQuery = `
+    const email = c.get("userEmail");
+    const userName = c.get("userName");
+    const isAdmin = c.get("isAdmin");
+    const slugFilter = c.req.query("slug");
+    // Query R2 SQL for analytics data
+    let stats = {
+        totalViews: 0,
+        totalClicks: 0,
+        totalQrScans: 0,
+        clickThroughRate: "0%",
+    };
+    let recentEvents = [];
+    let destinationBreakdown = [];
+    let linkTextBreakdown = [];
+    let slugBreakdown = [];
+    let hasData = false;
+    let errorMessage = null;
+    try {
+        // Build WHERE clause based on slug filter or user's accessible slugs
+        let whereClause;
+        if (slugFilter) {
+            // Single slug filter - check if user has access
+            const hasAccess = await canUserAccessLink(slugFilter, email);
+            if (!hasAccess) {
+                throw new Error("Access denied to this link");
+            }
+            whereClause = `WHERE slug = '${slugFilter}'`;
+        }
+        else {
+            // All user's slugs - get from D1
+            const userSlugs = await getUserAccessibleSlugs(email);
+            console.log("User accessible slugs:", userSlugs);
+            if (userSlugs.length === 0) {
+                // No links yet - return empty results
+                whereClause = "WHERE slug = 'nonexistent'"; // Will return no results
+            }
+            else {
+                // Build slug OR clause (R2 SQL doesn't support IN clause)
+                const slugConditions = userSlugs.map(s => `slug = '${s}'`).join(' OR ');
+                whereClause = `WHERE (${slugConditions})`;
+            }
+        }
+        console.log("Analytics WHERE clause:", whereClause);
+        // Define all queries
+        const statsQuery = `
       SELECT 
         event_type,
         COUNT(*)
@@ -1111,8 +978,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       ${whereClause}
       GROUP BY event_type
     `;
-
-    const eventsQuery = `
+        const eventsQuery = `
       SELECT 
         timestamp,
         event_type,
@@ -1127,8 +993,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       ORDER BY __ingest_ts DESC
       LIMIT 20
     `;
-
-    const destinationQuery = `
+        const destinationQuery = `
       SELECT 
         out,
         COUNT(*)
@@ -1139,8 +1004,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       GROUP BY out
       ORDER BY COUNT(*) DESC
     `;
-
-    const linkTextQuery = `
+        const linkTextQuery = `
       SELECT 
         link_text,
         out,
@@ -1153,8 +1017,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       GROUP BY link_text, out
       ORDER BY COUNT(*) DESC
     `;
-
-    const slugQuery = !slugFilter ? `
+        const slugQuery = !slugFilter ? `
       SELECT 
         slug,
         COUNT(*)
@@ -1164,100 +1027,90 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       GROUP BY slug
       ORDER BY COUNT(*) DESC
     ` : null;
-
-    // Execute all queries in parallel
-    const [statsData, eventsData, destinationData, linkTextData, slugData] = await Promise.all([
-      queryR2SQL(statsQuery),
-      queryR2SQL(eventsQuery),
-      queryR2SQL(destinationQuery),
-      queryR2SQL(linkTextQuery),
-      slugQuery ? queryR2SQL(slugQuery) : Promise.resolve({ result: { rows: [] } }),
-    ]);
-
-    console.log("All queries completed in parallel");
-
-    // Process stats data
-    const rows = statsData.result?.rows;
-    if (rows && rows.length > 0) {
-      hasData = true;
-      rows.forEach((row: any) => {
-        const count = row['count(*)'] || 0;
-        if (row.event_type === "page_view") stats.totalViews = count;
-        if (row.event_type === "click") stats.totalClicks = count;
-        if (row.event_type === "qr_scan") stats.totalQrScans = count;
-      });
-
-      // Calculate CTR
-      if (stats.totalViews > 0) {
-        const ctr = ((stats.totalClicks / stats.totalViews) * 100).toFixed(1);
-        stats.clickThroughRate = `${ctr}%`;
-      }
+        // Execute all queries in parallel
+        const [statsData, eventsData, destinationData, linkTextData, slugData] = await Promise.all([
+            queryR2SQL(statsQuery),
+            queryR2SQL(eventsQuery),
+            queryR2SQL(destinationQuery),
+            queryR2SQL(linkTextQuery),
+            slugQuery ? queryR2SQL(slugQuery) : Promise.resolve({ result: { rows: [] } }),
+        ]);
+        console.log("All queries completed in parallel");
+        // Process stats data
+        const rows = statsData.result?.rows;
+        if (rows && rows.length > 0) {
+            hasData = true;
+            rows.forEach((row) => {
+                const count = row['count(*)'] || 0;
+                if (row.event_type === "page_view")
+                    stats.totalViews = count;
+                if (row.event_type === "click")
+                    stats.totalClicks = count;
+                if (row.event_type === "qr_scan")
+                    stats.totalQrScans = count;
+            });
+            // Calculate CTR
+            if (stats.totalViews > 0) {
+                const ctr = ((stats.totalClicks / stats.totalViews) * 100).toFixed(1);
+                stats.clickThroughRate = `${ctr}%`;
+            }
+        }
+        // Process events data
+        const eventRows = eventsData.result?.rows;
+        if (eventRows && eventRows.length > 0) {
+            recentEvents = eventRows;
+        }
+        // Process destination data
+        const destRows = destinationData.result?.rows;
+        if (destRows && destRows.length > 0) {
+            destinationBreakdown = destRows
+                .map((row) => ({
+                out: row.out,
+                click_count: row['count(*)'] || row.click_count || 0
+            }))
+                .sort((a, b) => b.click_count - a.click_count)
+                .slice(0, 20);
+        }
+        // Process link text data
+        const linkRows = linkTextData.result?.rows;
+        if (linkRows && linkRows.length > 0) {
+            linkTextBreakdown = linkRows
+                .map((row) => ({
+                link_text: row.link_text,
+                out: row.out,
+                click_count: row['count(*)'] || row.click_count || 0
+            }))
+                .sort((a, b) => b.click_count - a.click_count)
+                .slice(0, 20);
+        }
+        // Process slug data (only when not filtering by slug)
+        const slugRows = slugData.result?.rows;
+        if (slugRows && slugRows.length > 0) {
+            // Fetch link titles from D1 for each slug (in parallel)
+            const slugsWithTitles = await Promise.all(slugRows.map(async (row) => {
+                const link = await getLink(row.slug);
+                return {
+                    slug: row.slug,
+                    title: link?.title || null,
+                    click_count: row['count(*)'] || 0
+                };
+            }));
+            slugBreakdown = slugsWithTitles
+                .sort((a, b) => b.click_count - a.click_count)
+                .slice(0, 20);
+        }
     }
-
-    // Process events data
-    const eventRows = eventsData.result?.rows;
-    if (eventRows && eventRows.length > 0) {
-      recentEvents = eventRows;
+    catch (error) {
+        console.error("Error querying R2 SQL - exception thrown:", error);
+        errorMessage = error instanceof Error ? error.message : "Unknown error querying analytics";
     }
-
-    // Process destination data
-    const destRows = destinationData.result?.rows;
-    if (destRows && destRows.length > 0) {
-      destinationBreakdown = destRows
-        .map((row: any) => ({
-          out: row.out,
-          click_count: row['count(*)'] || row.click_count || 0
-        }))
-        .sort((a, b) => b.click_count - a.click_count)
-        .slice(0, 20);
-    }
-
-    // Process link text data
-    const linkRows = linkTextData.result?.rows;
-    if (linkRows && linkRows.length > 0) {
-      linkTextBreakdown = linkRows
-        .map((row: any) => ({
-          link_text: row.link_text,
-          out: row.out,
-          click_count: row['count(*)'] || row.click_count || 0
-        }))
-        .sort((a, b) => b.click_count - a.click_count)
-        .slice(0, 20);
-    }
-
-    // Process slug data (only when not filtering by slug)
-    const slugRows = slugData.result?.rows;
-    if (slugRows && slugRows.length > 0) {
-      // Fetch link titles from D1 for each slug (in parallel)
-      const slugsWithTitles = await Promise.all(
-        slugRows.map(async (row: any) => {
-          const link = await getLink(row.slug);
-          return {
-            slug: row.slug,
-            title: link?.title || null,
-            click_count: row['count(*)'] || 0
-          };
-        })
-      );
-      
-      slugBreakdown = slugsWithTitles
-        .sort((a, b) => b.click_count - a.click_count)
-        .slice(0, 20);
-    }
-  } catch (error) {
-    console.error("Error querying R2 SQL - exception thrown:", error);
-    errorMessage = error instanceof Error ? error.message : "Unknown error querying analytics";
-  }
-
-  const user = await getUser(email);
-
-  return c.html(
-    DashboardLayout({
-      title: "Analytics Dashboard",
-      email: email,
-      userName: userName,
-      isAdmin: isAdmin,
-      styles: `
+    const user = await getUser(email);
+    return c.html(DashboardLayout({
+        title: "Analytics Dashboard",
+        email: email,
+        userName: userName,
+        isAdmin: isAdmin,
+        styles: `
         .stat-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1299,13 +1152,13 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         .badge.qr { background: #fce4ec; color: #c2185b; }
         .badge.view { background: #f3e5f5; color: #7b1fa2; }
       `,
-      children: html`
-        ${errorMessage ? html`
+        children: html `
+        ${errorMessage ? html `
           <div class="warning" style="background: #ffebee; border-color: #f44336;">
             <strong>❌ Error Loading Analytics:</strong> ${errorMessage}
             <p>Check the Worker logs for more details.</p>
           </div>
-        ` : !hasData ? html`
+        ` : !hasData ? html `
           <div class="warning">
             <strong>⚠️ No Data Yet:</strong> The pipeline is configured but hasn't collected any events yet.
             <p>To generate data:</p>
@@ -1317,15 +1170,15 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
             </ul>
             <p><em>Note: Pipelines batch data every 5 minutes (300 seconds) by default.</em></p>
           </div>
-        ` : html``}
+        ` : html ``}
 
-        ${slugFilter ? html`
+        ${slugFilter ? html `
           <div class="card">
             <h2>Analytics for: ${slugFilter}</h2>
             <p>Filtering data for this outie only.</p>
             <a href="/dashboard/analytics" class="btn btn-secondary">View All Links</a>
           </div>
-        ` : html`
+        ` : html `
           <div class="card">
             <h2>All Your Links</h2>
             <p>Showing aggregate data across all your outies.</p>
@@ -1351,7 +1204,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
           </div>
         </div>
 
-        ${!slugFilter && slugBreakdown.length > 0 ? html`
+        ${!slugFilter && slugBreakdown.length > 0 ? html `
           <div class="card">
             <h3>Clicks by Outie</h3>
             <table>
@@ -1364,12 +1217,12 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                 </tr>
               </thead>
               <tbody>
-                ${slugBreakdown.map(item => html`
+                ${slugBreakdown.map(item => html `
                   <tr>
                     <td>
-                      ${item.title ? html`
+                      ${item.title ? html `
                         <strong>${item.title}</strong>
-                      ` : html`
+                      ` : html `
                         <span style="color: #999; font-style: italic;">Untitled</span>
                       `}
                     </td>
@@ -1389,9 +1242,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
               </tbody>
             </table>
           </div>
-        ` : html``}
+        ` : html ``}
 
-        ${destinationBreakdown.length > 0 ? html`
+        ${destinationBreakdown.length > 0 ? html `
           <div class="card">
             <h3>Top Clicked Links</h3>
             <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
@@ -1405,7 +1258,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                 </tr>
               </thead>
               <tbody>
-                ${destinationBreakdown.map(item => html`
+                ${destinationBreakdown.map(item => html `
                   <tr>
                     <td>
                       <a href="${item.out}" target="_blank" style="color: #0066cc;">
@@ -1418,9 +1271,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
               </tbody>
             </table>
           </div>
-        ` : html``}
+        ` : html ``}
 
-        ${linkTextBreakdown.length > 0 ? html`
+        ${linkTextBreakdown.length > 0 ? html `
           <div class="card">
             <h3>Most Clicked Link Text</h3>
             <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
@@ -1435,7 +1288,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                 </tr>
               </thead>
               <tbody>
-                ${linkTextBreakdown.map(item => html`
+                ${linkTextBreakdown.map(item => html `
                   <tr>
                     <td style="font-weight: 500;">${item.link_text}</td>
                     <td>
@@ -1449,9 +1302,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
               </tbody>
             </table>
           </div>
-        ` : html``}
+        ` : html ``}
 
-        ${slugFilter ? html`
+        ${slugFilter ? html `
           <div class="card">
             <h3>Recent Events</h3>
             <table>
@@ -1465,21 +1318,23 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                 </tr>
               </thead>
               <tbody>
-                ${recentEvents.length === 0 ? html`
+                ${recentEvents.length === 0 ? html `
                   <tr>
                     <td colspan="5" style="text-align: center; color: #999; padding: 40px;">
                       No events yet - create a link and visit it to see data here
                     </td>
                   </tr>
                 ` : recentEvents.map(event => {
-                  // Build location string from available fields
-                  const locationParts = [];
-                  if (event.city) locationParts.push(event.city);
-                  if (event.region) locationParts.push(event.region);
-                  if (event.country) locationParts.push(event.country);
-                  const location = locationParts.length > 0 ? locationParts.join(', ') : '-';
-                  
-                  return html`
+            // Build location string from available fields
+            const locationParts = [];
+            if (event.city)
+                locationParts.push(event.city);
+            if (event.region)
+                locationParts.push(event.region);
+            if (event.country)
+                locationParts.push(event.country);
+            const location = locationParts.length > 0 ? locationParts.join(', ') : '-';
+            return html `
                     <tr>
                       <td>${new Date(event.timestamp).toLocaleString()}</td>
                       <td>
@@ -1491,43 +1346,37 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
                         ${event.link_text || '-'}
                       </td>
                       <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        ${event.out ? html`<a href="${event.out}" target="_blank" style="color: #0066cc;">${event.out.length > 40 ? event.out.substring(0, 40) + '...' : event.out}</a>` : '-'}
+                        ${event.out ? html `<a href="${event.out}" target="_blank" style="color: #0066cc;">${event.out.length > 40 ? event.out.substring(0, 40) + '...' : event.out}</a>` : '-'}
                       </td>
                       <td style="font-size: 12px; color: #666;">
                         ${location}
                       </td>
                     </tr>
                   `;
-                })}
+        })}
               </tbody>
             </table>
           </div>
-        ` : html``}
+        ` : html ``}
 
       `
-    })
-  );
+    }));
 });
-
 // Live preview API endpoint
 dashboard.post("/api/preview", authMiddleware, async (c) => {
-  try {
-    const { markdown, theme_id, custom_css } = await c.req.json();
-
-    // Get theme
-    const theme = await getTheme(theme_id);
-
-    // Render markdown to HTML
-    const htmlContent = await marked(markdown || '# Preview\n\nStart typing to see your content...');
-
-    // Generate combined CSS
-    const css = generateThemeCSS(theme, custom_css);
-
-    return c.json({ html: htmlContent, css });
-  } catch (err) {
-    console.error('Preview error:', err);
-    return c.json({ error: 'Preview failed' }, 500);
-  }
+    try {
+        const { markdown, theme_id, custom_css } = await c.req.json();
+        // Get theme
+        const theme = await getTheme(theme_id);
+        // Render markdown to HTML
+        const htmlContent = await marked(markdown || '# Preview\n\nStart typing to see your content...');
+        // Generate combined CSS
+        const css = generateThemeCSS(theme, custom_css);
+        return c.json({ html: htmlContent, css });
+    }
+    catch (err) {
+        console.error('Preview error:', err);
+        return c.json({ error: 'Preview failed' }, 500);
+    }
 });
-
 export default dashboard;

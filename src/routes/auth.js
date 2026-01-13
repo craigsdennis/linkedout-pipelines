@@ -1,15 +1,11 @@
 import { Hono } from "hono";
-import { BaseLayout } from "../views/layouts";
-
-const auth = new Hono<{ Bindings: Env }>();
-
+const auth = new Hono();
 /**
  * Login page - shows message and link to dashboard
  * Cloudflare Access handles authentication when user clicks through
  */
 auth.get("/login", (c) => {
-  return c.html(
-    `<!DOCTYPE html>
+    return c.html(`<!DOCTYPE html>
     <html>
       <head>
         <title>Login - LinkedOut</title>
@@ -38,16 +34,13 @@ auth.get("/login", (c) => {
           You'll be asked to authenticate via Cloudflare Access
         </p>
       </body>
-    </html>`
-  );
+    </html>`);
 });
-
 /**
  * Logout - redirect to Cloudflare Access logout
  * This clears the Cloudflare Access session
  */
 auth.get("/logout", async (c) => {
-  return c.redirect("https://craigsone.cloudflareaccess.com/cdn-cgi/access/logout");
+    return c.redirect("https://craigsone.cloudflareaccess.com/cdn-cgi/access/logout");
 });
-
 export default auth;

@@ -20,7 +20,7 @@ type Variables = {
   userEmail: string;
 };
 
-const app = new Hono<{ Bindings: CloudflareBindings; Variables: Variables }>();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Mount route modules
 app.route("/", tracking);
