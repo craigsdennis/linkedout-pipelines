@@ -366,4 +366,255 @@ describe("Database Operations - Integration Tests", () => {
       expect(result.results.every((t: any) => t.is_public === 1)).toBe(true);
     });
   });
+
+  describe("Advanced Link Operations", () => {
+    beforeEach(async () => {
+      const now = new Date().toISOString();
+      await db.batch([
+        db.prepare("INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)").bind("owner@example.com", 0, now),
+        db.prepare("INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)").bind("maintainer@example.com", 0, now),
+        db.prepare("INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)").bind("viewer@example.com", 0, now),
+      ]);
+    });
+
+    it("should get link with maintainers", async () => {
+      const now = new Date().toISOString();
+      
+      // Create link
+      await db.prepare(
+        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("test-link", "Test", "Content", "default", "owner@example.com", now, now, null).run();
+      
+      // Add multiple maintainers
+      await db.batch([
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "maintainer@example.com", now, "owner@example.com"),
+      ]);
+      
+      // Query link with maintainers
+      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("test-link").first();
+      const maintainers = await db.prepare(
+        "SELECT user_email FROM link_maintainers WHERE link_slug = ? ORDER BY added_at ASC"
+      ).bind("test-link").all();
+      
+      expect(link).toBeDefined();
+      expect(maintainers.results).toHaveLength(2);
+      expect(maintainers.results.some((m: any) => m.user_email === "owner@example.com")).toBe(true);
+      expect(maintainers.results.some((m: any) => m.user_email === "maintainer@example.com")).toBe(true);
+    });
+
+    it("should get all links accessible by user", async () => {
+      const now = new Date().toISOString();
+      
+      // Create multiple links
+      await db.batch([
+        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link1", "Link 1", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link2", "Link 2", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link3", "Link 3", "Content", "default", "maintainer@example.com", now, now, null),
+      ]);
+      
+      // Add maintainer access
+      await db.batch([
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "maintainer@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link2", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link3", "maintainer@example.com", now, "maintainer@example.com"),
+      ]);
+      
+      // Get links for maintainer@example.com (should have link1 and link3)
+      const links = await db.prepare(`
+        SELECT DISTINCT l.*
+        FROM links l
+        INNER JOIN link_maintainers lm ON l.slug = lm.link_slug
+        WHERE lm.user_email = ?
+        ORDER BY l.updated_at DESC
+      `).bind("maintainer@example.com").all();
+      
+      expect(links.results).toHaveLength(2);
+      expect(links.results.some((l: any) => l.slug === "link1")).toBe(true);
+      expect(links.results.some((l: any) => l.slug === "link3")).toBe(true);
+    });
+
+    it("should check if user can access link", async () => {
+      const now = new Date().toISOString();
+      
+      await db.prepare(
+        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("private-link", "Private", "Content", "default", "owner@example.com", now, now, null).run();
+      
+      await db.prepare(
+        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+      ).bind("private-link", "owner@example.com", now, "owner@example.com").run();
+      
+      // Owner should have access
+      const ownerAccess = await db.prepare(
+        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+      ).bind("private-link", "owner@example.com").first();
+      expect(ownerAccess).not.toBeNull();
+      
+      // Viewer should NOT have access
+      const viewerAccess = await db.prepare(
+        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+      ).bind("private-link", "viewer@example.com").first();
+      expect(viewerAccess).toBeNull();
+    });
+
+    it("should get user accessible slugs for analytics filtering", async () => {
+      const now = new Date().toISOString();
+      
+      // Create links and maintainers
+      await db.batch([
+        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics1", "Test 1", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics2", "Test 2", "Content", "default", "owner@example.com", now, now, null),
+      ]);
+      
+      await db.batch([
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics1", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics2", "owner@example.com", now, "owner@example.com"),
+      ]);
+      
+      // Get accessible slugs
+      const result = await db.prepare(
+        "SELECT link_slug FROM link_maintainers WHERE user_email = ?"
+      ).bind("owner@example.com").all();
+      
+      const slugs = result.results.map((r: any) => r.link_slug);
+      
+      expect(slugs).toContain("analytics1");
+      expect(slugs).toContain("analytics2");
+      expect(slugs).toHaveLength(2);
+    });
+
+    it("should handle creating link with custom CSS", async () => {
+      const now = new Date().toISOString();
+      const customCSS = ".custom { color: red; }";
+      
+      await db.prepare(
+        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("custom-link", "Custom", "Content", "default", "owner@example.com", now, now, customCSS).run();
+      
+      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("custom-link").first();
+      
+      expect(link?.custom_css).toBe(customCSS);
+    });
+
+    it("should handle updating link timestamps", async () => {
+      const now = new Date().toISOString();
+      
+      await db.prepare(
+        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("timestamp-link", "Original", "Content", "default", "owner@example.com", now, now, null).run();
+      
+      // Wait a moment and update
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const laterTime = new Date().toISOString();
+      
+      await db.prepare(
+        "UPDATE links SET title = ?, updated_at = ? WHERE slug = ?"
+      ).bind("Updated", laterTime, "timestamp-link").run();
+      
+      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("timestamp-link").first();
+      
+      expect(link?.title).toBe("Updated");
+      expect(link?.created_at).toBe(now);
+      expect(link?.updated_at).toBe(laterTime);
+      expect(link?.updated_at).not.toBe(link?.created_at);
+    });
+  });
+
+  describe("Theme CRUD Operations", () => {
+    beforeEach(async () => {
+      const now = new Date().toISOString();
+      await db.prepare("INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)").bind("theme-creator@example.com", 0, now).run();
+    });
+
+    it("should create custom theme", async () => {
+      const now = new Date().toISOString();
+      const cssVars = JSON.stringify({ "--primary-color": "#ff0000", "--background": "#ffffff" });
+      
+      await db.prepare(
+        "INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("custom-theme", "Custom Theme", "My custom theme", cssVars, null, "theme-creator@example.com", 0, now).run();
+      
+      const theme = await db.prepare("SELECT * FROM themes WHERE id = ?").bind("custom-theme").first();
+      
+      expect(theme).toBeDefined();
+      expect(theme?.name).toBe("Custom Theme");
+      expect(theme?.created_by).toBe("theme-creator@example.com");
+      expect(theme?.is_public).toBe(0);
+    });
+
+    it("should update theme", async () => {
+      const now = new Date().toISOString();
+      const cssVars = JSON.stringify({ "--primary-color": "#00ff00" });
+      
+      await db.prepare(
+        "INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("update-theme", "Original", "Desc", cssVars, null, "theme-creator@example.com", 0, now).run();
+      
+      const newCssVars = JSON.stringify({ "--primary-color": "#0000ff" });
+      await db.prepare(
+        "UPDATE themes SET name = ?, css_variables = ? WHERE id = ?"
+      ).bind("Updated Theme", newCssVars, "update-theme").run();
+      
+      const theme = await db.prepare("SELECT * FROM themes WHERE id = ?").bind("update-theme").first();
+      
+      expect(theme?.name).toBe("Updated Theme");
+      expect(theme?.css_variables).toBe(newCssVars);
+    });
+
+    it("should delete theme", async () => {
+      const now = new Date().toISOString();
+      const cssVars = JSON.stringify({ "--primary-color": "#ff0000" });
+      
+      await db.prepare(
+        "INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind("delete-theme", "Delete Me", "Desc", cssVars, null, "theme-creator@example.com", 0, now).run();
+      
+      let theme = await db.prepare("SELECT * FROM themes WHERE id = ?").bind("delete-theme").first();
+      expect(theme).not.toBeNull();
+      
+      await db.prepare("DELETE FROM themes WHERE id = ?").bind("delete-theme").run();
+      
+      theme = await db.prepare("SELECT * FROM themes WHERE id = ?").bind("delete-theme").first();
+      expect(theme).toBeNull();
+    });
+
+    it("should get themes created by user", async () => {
+      const now = new Date().toISOString();
+      const cssVars = JSON.stringify({ "--primary-color": "#ff0000" });
+      
+      await db.batch([
+        db.prepare("INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("user-theme-1", "Theme 1", "Desc", cssVars, null, "theme-creator@example.com", 0, now),
+        db.prepare("INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("user-theme-2", "Theme 2", "Desc", cssVars, null, "theme-creator@example.com", 1, now),
+      ]);
+      
+      const result = await db.prepare(
+        "SELECT * FROM themes WHERE created_by = ? ORDER BY name ASC"
+      ).bind("theme-creator@example.com").all();
+      
+      expect(result.results).toHaveLength(2);
+      expect(result.results.every((t: any) => t.created_by === "theme-creator@example.com")).toBe(true);
+    });
+
+    it("should filter public vs private themes", async () => {
+      const now = new Date().toISOString();
+      const cssVars = JSON.stringify({ "--primary-color": "#ff0000" });
+      
+      await db.batch([
+        db.prepare("INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("public-1", "Public 1", "Desc", cssVars, null, "theme-creator@example.com", 1, now),
+        db.prepare("INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("private-1", "Private 1", "Desc", cssVars, null, "theme-creator@example.com", 0, now),
+      ]);
+      
+      const publicThemes = await db.prepare("SELECT * FROM themes WHERE is_public = 1").all();
+      const privateThemes = await db.prepare("SELECT * FROM themes WHERE is_public = 0 AND created_by = ?").bind("theme-creator@example.com").all();
+      
+      // Public should include default theme + our new public theme
+      expect(publicThemes.results.length).toBeGreaterThanOrEqual(2);
+      expect(publicThemes.results.some((t: any) => t.id === "public-1")).toBe(true);
+      
+      // Private should only include our new private theme
+      expect(privateThemes.results.some((t: any) => t.id === "private-1")).toBe(true);
+    });
+  });
 });
