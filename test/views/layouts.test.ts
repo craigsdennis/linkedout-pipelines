@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BaseLayout, DashboardLayout, AuthLayout } from "./layouts";
+import { BaseLayout, DashboardLayout, AuthLayout } from "../../src/views/layouts";
 import { html } from "hono/html";
 
 describe("Layout Components", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import schema from "../schema.json";
+import schema from "../schema.json" with { type: "json" };
 
 describe("Pipeline Schema (v6 - no owner_email)", () => {
   it("should have all required fields", () => {

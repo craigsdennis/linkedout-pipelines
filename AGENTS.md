@@ -2,7 +2,7 @@
 
 ## Commands
 - **Dev**: `npm run dev` (local Workers dev server at http://localhost:8787)
-- **Test**: `npm test` (all tests), `npx vitest run src/utils/db.test.ts` (single file)
+- **Test**: `npm test` (all tests), `npx vitest run test/utils/db.test.ts` (single file)
 - **Deploy**: `npm run deploy` (deploys to production)
 - **TypeCheck**: `npx tsc --noEmit` (type checking without emit)
 - **Logs**: `npx wrangler tail` (view live Worker logs)
@@ -54,61 +54,94 @@ const result = await someFunction();         // ← RIGHT (uses env.DB internall
 - **Admin Check**: Use `adminMiddleware` for admin-only routes
 - **No Tokens**: JWT is stateless, no token storage needed
 
-### Testing with Vitest + Miniflare
-- **Integration tests**: Use Miniflare for real D1 database testing (no mocks!)
-- **Unit tests**: Use standard vitest patterns for pure functions
-- **Database tests**: See `src/utils/db.test.ts` for Miniflare pattern
+### Testing with Vitest + Cloudflare Workers Pool
+- **Test Location**: All tests in `test/` directory (not in `src/`)
+- **Integration tests**: Use `@cloudflare/vitest-pool-workers` for real D1/KV/R2 testing
+- **Unit tests**: Standard vitest patterns for pure functions
+- **Database tests**: See `test/utils/db.test.ts` for Workers pool pattern
+- **Config**: Must use TypeScript config (`vitest.config.ts`) for pool to work
 
-**Miniflare Pattern** (for D1 database tests):
+**Cloudflare Workers Pool Pattern** (recommended for D1 database tests):
 ```typescript
-import { Miniflare } from "miniflare";
-import type { D1Database } from "@cloudflare/workers-types";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { env } from "cloudflare:test";
 
-let mf: Miniflare;
-let db: D1Database;
+describe("Database Operations - Integration Tests", () => {
+  let db: D1Database;
 
-beforeAll(async () => {
-  mf = new Miniflare({
-    modules: true,
-    script: "",
-    d1Databases: { DB: "test-db" },
+  beforeAll(async () => {
+    // Use D1 database from Cloudflare test environment
+    db = env.DB;
+    
+    // Create schema manually with db.batch()
+    await db.batch([
+      db.prepare("CREATE TABLE users (...)"),
+      db.prepare("CREATE TABLE links (...)"),
+    ]);
+  }, 30000);
+
+  beforeEach(async () => {
+    // Clear data between tests
+    await db.batch([
+      db.prepare("DELETE FROM links"),
+      db.prepare("DELETE FROM users"),
+    ]);
   });
-  
-  db = await mf.getD1Database("DB");
-  
-  // Create schema manually with db.batch()
-  await db.batch([
-    db.prepare("CREATE TABLE users (...)"),
-    db.prepare("CREATE TABLE links (...)"),
-  ]);
-}, 30000);
 
-afterAll(async () => {
-  await mf?.dispose();
-});
-
-beforeEach(async () => {
-  // Clear data between tests
-  await db.batch([
-    db.prepare("DELETE FROM links"),
-    db.prepare("DELETE FROM users"),
-  ]);
-});
-
-it("should test with real database", async () => {
-  await db.prepare("INSERT INTO users (...) VALUES (?, ?, ?)").bind(...).run();
-  const user = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
-  expect(user).toBeDefined();
+  it("should test with real database", async () => {
+    await db.prepare("INSERT INTO users (...) VALUES (?, ?, ?)").bind(...).run();
+    const user = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+    expect(user).toBeDefined();
+  });
 });
 ```
 
-**Benefits of Miniflare**:
-- Tests real SQL queries, not mocks
-- Catches SQL syntax errors
-- Validates schema design
-- Tests actual D1 behavior
-- Faster than remote D1
-- No complex mocking setup
+**Configuration** (`vitest.config.ts`):
+```typescript
+import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
+
+export default defineWorkersConfig({
+  test: {
+    poolOptions: {
+      workers: {
+        wrangler: { configPath: "./wrangler.jsonc" },
+        singleWorker: true,
+      },
+    },
+  },
+});
+```
+
+**TypeScript Setup** (`test/tsconfig.json`):
+```jsonc
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": ["@cloudflare/vitest-pool-workers"]
+  },
+  "include": ["./**/*.ts", "../worker-configuration.d.ts"]
+}
+```
+
+**Environment Types** (`test/env.d.ts`):
+```typescript
+declare module "cloudflare:test" {
+  interface ProvidedEnv extends Env {
+    // Add any test-specific bindings here if needed
+  }
+}
+```
+
+**Benefits of @cloudflare/vitest-pool-workers**:
+- Official Cloudflare testing solution
+- Tests real SQL queries against D1 (no mocks!)
+- Access to all Workers APIs: D1, KV, R2, Durable Objects, etc.
+- Uses actual wrangler.jsonc configuration
+- Catches SQL syntax errors and schema issues
+- Tests actual D1/Workers behavior
+- Integration with `SELF` fetcher for full Worker testing
+- No manual Miniflare setup required
 
 ### R2 SQL Queries
 - **Response Structure**: `{result: {rows: [...]}}` NOT `{data: [...]}`
@@ -274,12 +307,11 @@ ORDER BY __ingest_ts DESC; // Works
 const mockDB = { prepare: vi.fn(), /* ... */ };
 vi.mock("cloudflare:workers", () => ({ env: { DB: mockDB } })); // Don't mock!
 ```
-✅ **DO**: Use Miniflare for real D1 testing
+✅ **DO**: Use Cloudflare Workers pool for real D1 testing
 ```typescript
-import { Miniflare } from "miniflare";
-const mf = new Miniflare({ d1Databases: { DB: "test-db" } });
-const db = await mf.getD1Database("DB");
-// Test with real database queries
+import { env } from "cloudflare:test";
+const db = env.DB;
+// Test with real database queries - no setup needed!
 ```
 
 ## Debugging
@@ -319,9 +351,10 @@ npx wrangler d1 execute linkedout-db --remote --command "SELECT * FROM link_main
 - Check "Send Cf-Access-JWT-Assertion header" is enabled
 
 **Tests failing with D1 errors**:
-- Ensure Miniflare is set up correctly in `beforeAll()`
-- Check schema is created before tests run
+- Ensure vitest.config.ts uses `defineWorkersConfig` (not .js file)
+- Check schema is created in `beforeAll()` before tests run
 - Verify cleanup happens in `beforeEach()`, not during schema setup
+- Make sure test files are in `test/` directory with proper imports
 
 **R2 SQL query errors**:
 - Remove `AS` aliases

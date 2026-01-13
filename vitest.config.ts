@@ -1,8 +1,12 @@
-import { defineConfig } from "vitest/config";
+import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 
-export default defineConfig({
+export default defineWorkersConfig({
   test: {
-    // Run tests with access to Cloudflare Workers runtime
-    // Uses wrangler's getPlatformProxy for local D1 testing
+    poolOptions: {
+      workers: {
+        wrangler: { configPath: "./wrangler.jsonc" },
+        singleWorker: true,
+      },
+    },
   },
 });

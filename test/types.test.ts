@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { ClickEvent, Link, User } from "./types";
+import type { ClickEvent, Link, User } from "../src/types";
 
 describe("TypeScript Types", () => {
   describe("ClickEvent", () => {

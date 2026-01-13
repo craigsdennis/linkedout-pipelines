@@ -1,27 +1,17 @@
 /**
  * Database Integration Tests
- * Uses Miniflare for real D1 database testing (no mocks!)
+ * Uses @cloudflare/vitest-pool-workers for real D1 database testing (no mocks!)
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { Miniflare } from "miniflare";
-import type { D1Database } from "@cloudflare/workers-types";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { env } from "cloudflare:test";
 
 describe("Database Operations - Integration Tests", () => {
-  let mf: Miniflare;
   let db: D1Database;
 
   beforeAll(async () => {
-    // Create Miniflare instance with D1
-    mf = new Miniflare({
-      modules: true,
-      script: "",
-      d1Databases: {
-        DB: "test-db"
-      },
-    });
-
-    db = await mf.getD1Database("DB");
+    // Use the D1 database from Cloudflare test environment
+    db = env.DB;
 
     // Create schema manually (simpler than parsing SQL files)
     await db.batch([
@@ -86,10 +76,6 @@ describe("Database Operations - Integration Tests", () => {
       new Date().toISOString()
     ).run();
   }, 30000);
-
-  afterAll(async () => {
-    await mf?.dispose();
-  });
 
   beforeEach(async () => {
     // Clear data before each test (keep schema and themes)
