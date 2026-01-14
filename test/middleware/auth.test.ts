@@ -34,7 +34,7 @@ describe("Authentication Middleware - Integration Tests", () => {
         )
       `),
       db.prepare(`
-        CREATE TABLE IF NOT EXISTS links (
+        CREATE TABLE IF NOT EXISTS outies (
           slug TEXT PRIMARY KEY,
           title TEXT,
           content TEXT NOT NULL,
@@ -46,12 +46,21 @@ describe("Authentication Middleware - Integration Tests", () => {
         )
       `),
       db.prepare(`
-        CREATE TABLE IF NOT EXISTS link_maintainers (
-          link_slug TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS outie_maintainers (
+          outie_slug TEXT NOT NULL,
           user_email TEXT NOT NULL,
           added_at TEXT NOT NULL,
           added_by TEXT,
-          PRIMARY KEY (link_slug, user_email)
+          PRIMARY KEY (outie_slug, user_email)
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS outie_maintainers (
+          outie_slug TEXT NOT NULL,
+          user_email TEXT NOT NULL,
+          added_at TEXT NOT NULL,
+          added_by TEXT,
+          PRIMARY KEY (outie_slug, user_email)
         )
       `),
       db.prepare(`
@@ -87,8 +96,8 @@ describe("Authentication Middleware - Integration Tests", () => {
   beforeEach(async () => {
     // Clear data before each test
     await db.batch([
-      db.prepare("DELETE FROM link_maintainers"),
-      db.prepare("DELETE FROM links"),
+      db.prepare("DELETE FROM outie_maintainers"),
+      db.prepare("DELETE FROM outies"),
       db.prepare("DELETE FROM users"),
     ]);
   });

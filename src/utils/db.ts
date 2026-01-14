@@ -76,7 +76,7 @@ export async function getLink(slug: string
 ): Promise<Link | null> {
   const result = await env.DB
     .prepare(
-      "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM links WHERE slug = ?"
+      "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM outies WHERE slug = ?"
     )
     .bind(slug)
     .first<{
@@ -130,7 +130,7 @@ export async function createLink(link: Omit<Link, "created_at" | "updated_at">,
   // Insert link
   await env.DB
     .prepare(
-      "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(
       fullLink.slug,
@@ -183,7 +183,7 @@ export async function updateLink(slug: string,
 
   await env.DB
     .prepare(
-      `UPDATE links SET ${setClauses.join(", ")} WHERE slug = ?`
+      `UPDATE outies SET ${setClauses.join(", ")} WHERE slug = ?`
     )
     .bind(...values)
     .run();
@@ -191,7 +191,7 @@ export async function updateLink(slug: string,
 
 export async function deleteLink(slug: string
 ): Promise<void> {
-  await env.DB.prepare("DELETE FROM links WHERE slug = ?").bind(slug).run();
+  await env.DB.prepare("DELETE FROM outies WHERE slug = ?").bind(slug).run();
 }
 
 export async function getUserLinks(email: string
@@ -199,8 +199,8 @@ export async function getUserLinks(email: string
   const result = await env.DB
     .prepare(
       `SELECT DISTINCT l.slug, l.title, l.content, l.theme_id, l.created_by, l.created_at, l.updated_at, l.custom_css
-       FROM links l
-       INNER JOIN link_maintainers lm ON l.slug = lm.link_slug
+       FROM outies l
+       INNER JOIN outie_maintainers lm ON l.slug = lm.outie_slug
        WHERE lm.user_email = ?
        ORDER BY l.created_at DESC`
     )
@@ -237,7 +237,7 @@ export async function canUserAccessLink(slug: string,
 ): Promise<boolean> {
   const result = await env.DB
     .prepare(
-      "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+      "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
     )
     .bind(slug, email)
     .first();
@@ -253,7 +253,7 @@ export async function addMaintainer(slug: string,
 
   await env.DB
     .prepare(
-      "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+      "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
     )
     .bind(slug, email, now, addedBy)
     .run();
@@ -264,7 +264,7 @@ export async function removeMaintainer(slug: string,
 ): Promise<void> {
   await env.DB
     .prepare(
-      "DELETE FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+      "DELETE FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
     )
     .bind(slug, email)
     .run();
@@ -274,11 +274,11 @@ export async function getLinkMaintainers(slug: string
 ): Promise<LinkMaintainer[]> {
   const result = await env.DB
     .prepare(
-      "SELECT link_slug, user_email, added_at, added_by FROM link_maintainers WHERE link_slug = ? ORDER BY added_at ASC"
+      "SELECT outie_slug, user_email, added_at, added_by FROM outie_maintainers WHERE outie_slug = ? ORDER BY added_at ASC"
     )
     .bind(slug)
     .all<{
-      link_slug: string;
+      outie_slug: string;
       user_email: string;
       added_at: string;
       added_by: string | null;
@@ -287,7 +287,7 @@ export async function getLinkMaintainers(slug: string
   if (!result.results) return [];
 
   return result.results.map((row) => ({
-    link_slug: row.link_slug,
+    outie_slug: row.outie_slug,
     user_email: row.user_email,
     added_at: row.added_at,
     added_by: row.added_by,
@@ -298,14 +298,14 @@ export async function getUserAccessibleSlugs(email: string
 ): Promise<string[]> {
   const result = await env.DB
     .prepare(
-      "SELECT link_slug FROM link_maintainers WHERE user_email = ? ORDER BY added_at DESC"
+      "SELECT outie_slug FROM outie_maintainers WHERE user_email = ? ORDER BY added_at DESC"
     )
     .bind(email)
-    .all<{ link_slug: string }>();
+    .all<{ outie_slug: string }>();
 
   if (!result.results) return [];
 
-  return result.results.map((row) => row.link_slug);
+  return result.results.map((row) => row.outie_slug);
 }
 
 // ==================== THEME OPERATIONS ====================

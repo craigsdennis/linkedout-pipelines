@@ -1,5 +1,5 @@
 -- LinkedOut D1 Schema Migration
--- Creates all tables for users, links, themes, and maintainers
+-- Creates all tables for users, outies, themes, and maintainers
 
 -- Users table
 CREATE TABLE users (
@@ -21,8 +21,8 @@ CREATE TABLE themes (
   FOREIGN KEY (created_by) REFERENCES users(email) ON DELETE SET NULL
 );
 
--- Links table (previously in KV)
-CREATE TABLE links (
+-- Outies table (shareable pages)
+CREATE TABLE outies (
   slug TEXT PRIMARY KEY,
   title TEXT,
   content TEXT NOT NULL,
@@ -30,26 +30,27 @@ CREATE TABLE links (
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  custom_css TEXT DEFAULT NULL,
   FOREIGN KEY (theme_id) REFERENCES themes(id) ON DELETE SET DEFAULT,
   FOREIGN KEY (created_by) REFERENCES users(email) ON DELETE CASCADE
 );
 
--- Link maintainers junction table (many-to-many)
-CREATE TABLE link_maintainers (
-  link_slug TEXT NOT NULL,
+-- Outie maintainers junction table (many-to-many)
+CREATE TABLE outie_maintainers (
+  outie_slug TEXT NOT NULL,
   user_email TEXT NOT NULL,
   added_at TEXT NOT NULL,
   added_by TEXT,
-  PRIMARY KEY (link_slug, user_email),
-  FOREIGN KEY (link_slug) REFERENCES links(slug) ON DELETE CASCADE,
+  PRIMARY KEY (outie_slug, user_email),
+  FOREIGN KEY (outie_slug) REFERENCES outies(slug) ON DELETE CASCADE,
   FOREIGN KEY (user_email) REFERENCES users(email) ON DELETE CASCADE,
   FOREIGN KEY (added_by) REFERENCES users(email) ON DELETE SET NULL
 );
 
 -- Indexes for performance
-CREATE INDEX idx_maintainers_user ON link_maintainers(user_email);
-CREATE INDEX idx_maintainers_link ON link_maintainers(link_slug);
-CREATE INDEX idx_links_theme ON links(theme_id);
-CREATE INDEX idx_links_created_by ON links(created_by);
+CREATE INDEX idx_maintainers_user ON outie_maintainers(user_email);
+CREATE INDEX idx_maintainers_outie ON outie_maintainers(outie_slug);
+CREATE INDEX idx_outies_theme ON outies(theme_id);
+CREATE INDEX idx_outies_created_by ON outies(created_by);
 CREATE INDEX idx_themes_public ON themes(is_public);
 CREATE INDEX idx_themes_created_by ON themes(created_by);

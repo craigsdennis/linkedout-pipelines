@@ -47,7 +47,7 @@ export interface OutieWithMaintainers extends Outie {
 
 // Outie maintainer junction table record
 export interface OutieMaintainer {
-  link_slug: string; // Database column is still called link_slug
+  outie_slug: string;
   user_email: string;
   added_at: string;
   added_by: string | null;

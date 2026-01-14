@@ -38,7 +38,7 @@ describe("Database Operations - Integration Tests", () => {
       `),
       // Links table
       db.prepare(`
-        CREATE TABLE links (
+        CREATE TABLE outies (
           slug TEXT PRIMARY KEY,
           title TEXT,
           content TEXT NOT NULL,
@@ -51,12 +51,12 @@ describe("Database Operations - Integration Tests", () => {
       `),
       // Link maintainers junction table
       db.prepare(`
-        CREATE TABLE link_maintainers (
-          link_slug TEXT NOT NULL,
+        CREATE TABLE outie_maintainers (
+          outie_slug TEXT NOT NULL,
           user_email TEXT NOT NULL,
           added_at TEXT NOT NULL,
           added_by TEXT,
-          PRIMARY KEY (link_slug, user_email)
+          PRIMARY KEY (outie_slug, user_email)
         )
       `),
     ]);
@@ -80,8 +80,8 @@ describe("Database Operations - Integration Tests", () => {
   beforeEach(async () => {
     // Clear data before each test (keep schema and themes)
     await db.batch([
-      db.prepare("DELETE FROM link_maintainers"),
-      db.prepare("DELETE FROM links"),
+      db.prepare("DELETE FROM outie_maintainers"),
+      db.prepare("DELETE FROM outies"),
       db.prepare("DELETE FROM users"),
     ]);
   });
@@ -181,16 +181,16 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("test-link", "Test Link", "# Hello World", "default", "creator@example.com", now, now, null).run();
 
       // Add maintainer
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("test-link", "creator@example.com", now, "creator@example.com").run();
 
       const link = await db.prepare(
-        "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM links WHERE slug = ?"
+        "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM outies WHERE slug = ?"
       ).bind("test-link").first();
 
       expect(link).toBeDefined();
@@ -200,7 +200,7 @@ describe("Database Operations - Integration Tests", () => {
 
     it("should return null for non-existent link", async () => {
       const link = await db.prepare(
-        "SELECT * FROM links WHERE slug = ?"
+        "SELECT * FROM outies WHERE slug = ?"
       ).bind("nonexistent-slug").first();
 
       expect(link).toBeNull();
@@ -210,16 +210,16 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("update-test", "Original Title", "Original content", "default", "creator@example.com", now, now, null).run();
 
       const laterTime = new Date(Date.now() + 1000).toISOString();
       await db.prepare(
-        "UPDATE links SET title = ?, content = ?, updated_at = ? WHERE slug = ?"
+        "UPDATE outies SET title = ?, content = ?, updated_at = ? WHERE slug = ?"
       ).bind("Updated Title", "Updated content", laterTime, "update-test").run();
 
       const link = await db.prepare(
-        "SELECT * FROM links WHERE slug = ?"
+        "SELECT * FROM outies WHERE slug = ?"
       ).bind("update-test").first();
 
       expect(link?.title).toBe("Updated Title");
@@ -230,15 +230,15 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("delete-test", "Delete Me", "Content", "default", "creator@example.com", now, now, null).run();
 
-      let link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("delete-test").first();
+      let link = await db.prepare("SELECT * FROM outies WHERE slug = ?").bind("delete-test").first();
       expect(link).not.toBeNull();
 
-      await db.prepare("DELETE FROM links WHERE slug = ?").bind("delete-test").run();
+      await db.prepare("DELETE FROM outies WHERE slug = ?").bind("delete-test").run();
 
-      link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("delete-test").first();
+      link = await db.prepare("SELECT * FROM outies WHERE slug = ?").bind("delete-test").first();
       expect(link).toBeNull();
     });
   });
@@ -253,23 +253,23 @@ describe("Database Operations - Integration Tests", () => {
       ]);
 
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("test-link", "Test", "Content", "default", "owner@example.com", now, now, null).run();
 
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("test-link", "owner@example.com", now, "owner@example.com").run();
     });
 
     it("should check user access to link", async () => {
       const hasAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "owner@example.com").first();
 
       expect(hasAccess).not.toBeNull();
 
       const noAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "maintainer@example.com").first();
 
       expect(noAccess).toBeNull();
@@ -279,11 +279,11 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("test-link", "maintainer@example.com", now, "owner@example.com").run();
 
       const hasAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "maintainer@example.com").first();
 
       expect(hasAccess).not.toBeNull();
@@ -293,20 +293,20 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("test-link", "maintainer@example.com", now, "owner@example.com").run();
 
       let hasAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "maintainer@example.com").first();
       expect(hasAccess).not.toBeNull();
 
       await db.prepare(
-        "DELETE FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "DELETE FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "maintainer@example.com").run();
 
       hasAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("test-link", "maintainer@example.com").first();
       expect(hasAccess).toBeNull();
     });
@@ -315,11 +315,11 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("test-link", "maintainer@example.com", now, "owner@example.com").run();
 
       const result = await db.prepare(
-        "SELECT link_slug, user_email, added_at, added_by FROM link_maintainers WHERE link_slug = ? ORDER BY added_at ASC"
+        "SELECT outie_slug, user_email, added_at, added_by FROM outie_maintainers WHERE outie_slug = ? ORDER BY added_at ASC"
       ).bind("test-link").all();
 
       expect(result.results).toHaveLength(2);
@@ -382,19 +382,19 @@ describe("Database Operations - Integration Tests", () => {
       
       // Create link
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("test-link", "Test", "Content", "default", "owner@example.com", now, now, null).run();
       
       // Add multiple maintainers
       await db.batch([
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "owner@example.com", now, "owner@example.com"),
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "maintainer@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("test-link", "maintainer@example.com", now, "owner@example.com"),
       ]);
       
       // Query link with maintainers
-      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("test-link").first();
+      const link = await db.prepare("SELECT * FROM outies WHERE slug = ?").bind("test-link").first();
       const maintainers = await db.prepare(
-        "SELECT user_email FROM link_maintainers WHERE link_slug = ? ORDER BY added_at ASC"
+        "SELECT user_email FROM outie_maintainers WHERE outie_slug = ? ORDER BY added_at ASC"
       ).bind("test-link").all();
       
       expect(link).toBeDefined();
@@ -408,24 +408,24 @@ describe("Database Operations - Integration Tests", () => {
       
       // Create multiple links
       await db.batch([
-        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link1", "Link 1", "Content", "default", "owner@example.com", now, now, null),
-        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link2", "Link 2", "Content", "default", "owner@example.com", now, now, null),
-        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link3", "Link 3", "Content", "default", "maintainer@example.com", now, now, null),
+        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link1", "Link 1", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link2", "Link 2", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("link3", "Link 3", "Content", "default", "maintainer@example.com", now, now, null),
       ]);
       
       // Add maintainer access
       await db.batch([
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "owner@example.com", now, "owner@example.com"),
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "maintainer@example.com", now, "owner@example.com"),
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link2", "owner@example.com", now, "owner@example.com"),
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link3", "maintainer@example.com", now, "maintainer@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link1", "maintainer@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link2", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("link3", "maintainer@example.com", now, "maintainer@example.com"),
       ]);
       
       // Get links for maintainer@example.com (should have link1 and link3)
       const links = await db.prepare(`
         SELECT DISTINCT l.*
-        FROM links l
-        INNER JOIN link_maintainers lm ON l.slug = lm.link_slug
+        FROM outies l
+        INNER JOIN outie_maintainers lm ON l.slug = lm.outie_slug
         WHERE lm.user_email = ?
         ORDER BY l.updated_at DESC
       `).bind("maintainer@example.com").all();
@@ -439,22 +439,22 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("private-link", "Private", "Content", "default", "owner@example.com", now, now, null).run();
       
       await db.prepare(
-        "INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
+        "INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)"
       ).bind("private-link", "owner@example.com", now, "owner@example.com").run();
       
       // Owner should have access
       const ownerAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("private-link", "owner@example.com").first();
       expect(ownerAccess).not.toBeNull();
       
       // Viewer should NOT have access
       const viewerAccess = await db.prepare(
-        "SELECT 1 FROM link_maintainers WHERE link_slug = ? AND user_email = ?"
+        "SELECT 1 FROM outie_maintainers WHERE outie_slug = ? AND user_email = ?"
       ).bind("private-link", "viewer@example.com").first();
       expect(viewerAccess).toBeNull();
     });
@@ -464,21 +464,21 @@ describe("Database Operations - Integration Tests", () => {
       
       // Create links and maintainers
       await db.batch([
-        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics1", "Test 1", "Content", "default", "owner@example.com", now, now, null),
-        db.prepare("INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics2", "Test 2", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics1", "Test 1", "Content", "default", "owner@example.com", now, now, null),
+        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind("analytics2", "Test 2", "Content", "default", "owner@example.com", now, now, null),
       ]);
       
       await db.batch([
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics1", "owner@example.com", now, "owner@example.com"),
-        db.prepare("INSERT INTO link_maintainers (link_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics2", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics1", "owner@example.com", now, "owner@example.com"),
+        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at, added_by) VALUES (?, ?, ?, ?)").bind("analytics2", "owner@example.com", now, "owner@example.com"),
       ]);
       
       // Get accessible slugs
       const result = await db.prepare(
-        "SELECT link_slug FROM link_maintainers WHERE user_email = ?"
+        "SELECT outie_slug FROM outie_maintainers WHERE user_email = ?"
       ).bind("owner@example.com").all();
       
-      const slugs = result.results.map((r: any) => r.link_slug);
+      const slugs = result.results.map((r: any) => r.outie_slug);
       
       expect(slugs).toContain("analytics1");
       expect(slugs).toContain("analytics2");
@@ -490,10 +490,10 @@ describe("Database Operations - Integration Tests", () => {
       const customCSS = ".custom { color: red; }";
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("custom-link", "Custom", "Content", "default", "owner@example.com", now, now, customCSS).run();
       
-      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("custom-link").first();
+      const link = await db.prepare("SELECT * FROM outies WHERE slug = ?").bind("custom-link").first();
       
       expect(link?.custom_css).toBe(customCSS);
     });
@@ -502,7 +502,7 @@ describe("Database Operations - Integration Tests", () => {
       const now = new Date().toISOString();
       
       await db.prepare(
-        "INSERT INTO links (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).bind("timestamp-link", "Original", "Content", "default", "owner@example.com", now, now, null).run();
       
       // Wait a moment and update
@@ -510,10 +510,10 @@ describe("Database Operations - Integration Tests", () => {
       const laterTime = new Date().toISOString();
       
       await db.prepare(
-        "UPDATE links SET title = ?, updated_at = ? WHERE slug = ?"
+        "UPDATE outies SET title = ?, updated_at = ? WHERE slug = ?"
       ).bind("Updated", laterTime, "timestamp-link").run();
       
-      const link = await db.prepare("SELECT * FROM links WHERE slug = ?").bind("timestamp-link").first();
+      const link = await db.prepare("SELECT * FROM outies WHERE slug = ?").bind("timestamp-link").first();
       
       expect(link?.title).toBe("Updated");
       expect(link?.created_at).toBe(now);

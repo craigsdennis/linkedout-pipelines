@@ -1,8 +1,8 @@
--- Add custom CSS column to links table for per-link styling
--- This allows users to customize theme styling per link
--- Maintainers can edit custom CSS as it's part of the link data
+-- Add custom CSS column to outies table for per-outie styling
+-- This allows users to customize theme styling per outie
+-- Maintainers can edit custom CSS as it's part of the outie data
 
-ALTER TABLE links ADD COLUMN custom_css TEXT DEFAULT NULL;
+ALTER TABLE outies ADD COLUMN custom_css TEXT DEFAULT NULL;
 
 -- Add comment for clarity
 -- custom_css stores CSS that overrides/extends the base theme
