@@ -93,7 +93,7 @@ app.get("/out/:slug", async (c) => {
   waitUntil((async () => {
     console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
     try {
-      await c.env.CLICK_STREAM.send([pageViewEvent]);
+      await c.env.EVENT_STREAM.send([pageViewEvent]);
       console.log("page_view event sent successfully");
     } catch (err) {
       console.error("Failed to send page_view event:", err);

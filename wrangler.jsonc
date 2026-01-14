@@ -31,8 +31,8 @@
 	],
 	"pipelines": [
 		{
-			"binding": "CLICK_STREAM",
-			"pipeline": "f87b847eaee04aef95159ac8aace0219"
+			"binding": "EVENT_STREAM",
+			"pipeline": "4fe2606a2aa74a6990662fcc5d508517"
 		}
 	],
 }

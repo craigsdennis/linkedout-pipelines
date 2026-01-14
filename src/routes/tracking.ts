@@ -37,7 +37,7 @@ tracking.post("/api/track", async (c) => {
 	};
 
 	// Track click asynchronously (don't block response)
-	waitUntil(c.env.CLICK_STREAM.send([clickEvent]));
+	waitUntil(c.env.EVENT_STREAM.send([clickEvent]));
 
 	return c.body(null, 204);
 });

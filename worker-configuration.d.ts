@@ -12,7 +12,7 @@ declare namespace Cloudflare {
 		CLOUDFLARE_ACCESS_APPLICATION: string;
 		DB: D1Database;
 		ASSETS: Fetcher;
-		CLICK_STREAM: import("cloudflare:pipelines").Pipeline<import("cloudflare:pipelines").PipelineRecord>;
+		EVENT_STREAM: import("cloudflare:pipelines").Pipeline<import("cloudflare:pipelines").PipelineRecord>;
 	}
 }
 interface Env extends Cloudflare.Env {}
