@@ -28,8 +28,8 @@ export interface ClickEvent {
   [key: string]: any; // Index signature for Pipeline compatibility
 }
 
-// Link stored in D1
-export interface Link {
+// Outie (page) stored in D1
+export interface Outie {
   slug: string;
   title: string | null;
   content: string;
@@ -40,14 +40,14 @@ export interface Link {
   custom_css: string | null;
 }
 
-// Link with maintainers list
-export interface LinkWithMaintainers extends Link {
+// Outie with maintainers list
+export interface OutieWithMaintainers extends Outie {
   maintainers: string[];
 }
 
-// Link maintainer junction table record
-export interface LinkMaintainer {
-  link_slug: string;
+// Outie maintainer junction table record
+export interface OutieMaintainer {
+  link_slug: string; // Database column is still called link_slug
   user_email: string;
   added_at: string;
   added_by: string | null;

@@ -16,6 +16,7 @@
 		"qrcode": "^1.5.4"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.3.11",
 		"@cloudflare/vitest-pool-workers": "^0.12.3",
 		"@types/common-tags": "^1.8.4",
 		"@types/qrcode": "^1.5.6",

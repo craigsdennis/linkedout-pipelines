@@ -177,9 +177,9 @@ Public (no auth):
 
 Authenticated (/dashboard/*):
   /dashboard - User's links dashboard
-  /dashboard/links/create - Create new outie
-  /dashboard/links/view/:slug - View/manage link
-  /dashboard/links/:slug/edit - Edit link
+  /dashboard/outies/create - Create new outie
+  /dashboard/outies/view/:slug - View/manage outie
+  /dashboard/outies/:slug/edit - Edit outie
   /dashboard/analytics - Analytics (filterable by slug)
   /dashboard/api/preview - Markdown preview endpoint (POST)
 

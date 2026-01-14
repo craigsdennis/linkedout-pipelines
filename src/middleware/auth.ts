@@ -72,7 +72,7 @@ export const authMiddleware = async (c: any, next: any) => {
 
           <p style="text-align: center; margin-top: 30px;">
             <a href="/">← Back to Homepage</a> | 
-            <a href="https://craigsone.cloudflareaccess.com/cdn-cgi/access/logout">Logout from Access</a>
+            <a href="https://${c.env.CLOUDFLARE_ACCESS_APPLICATION}.cloudflareaccess.com/cdn-cgi/access/logout">Logout from Access</a>
           </p>
         </body>
       </html>`,

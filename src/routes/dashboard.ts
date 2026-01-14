@@ -54,7 +54,7 @@ dashboard.get("/", authMiddleware, async (c) => {
       children: html`
         <div class="card">
           <h2>Your Outies</h2>
-          <a href="/dashboard/links/create" class="btn">Create New Outie</a>
+          <a href="/dashboard/outies/create" class="btn">Create New Outie</a>
           
           ${userLinks.length === 0 
             ? html`<p>No outies yet. Create your first one!</p>`
@@ -77,7 +77,7 @@ dashboard.get("/", authMiddleware, async (c) => {
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                       <a href="/out/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">View</a>
-                      <a href="/dashboard/links/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
+                      <a href="/dashboard/outies/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
                       <a href="/qr/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">QR Code</a>
                       <a href="/dashboard/analytics?slug=${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px; background: #f5f5f5; color: #333;" title="View analytics for this page">
                         📊 Analytics
@@ -328,7 +328,7 @@ dashboard.get("/links/create", authMiddleware, async (c) => {
           ${raw(JSON.stringify(themes))}
         </script>
 
-        <form method="POST" action="/dashboard/links/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
+        <form method="POST" action="/dashboard/outies/create" style="background: #f5f5f5; padding: 30px; border-radius: 8px;">
           <label for="slug" style="display: block; margin-bottom: 5px; font-weight: 500;">URL Slug</label>
           <input 
             type="text" 
@@ -497,7 +497,7 @@ dashboard.post("/links/create", authMiddleware, async (c) => {
     email // maintainer email
   );
 
-  return c.redirect(`/dashboard/links/view/${slug}`);
+  return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
 // View/edit link
@@ -596,7 +596,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
               <li style="padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                 <span>${maintainerEmail}</span>
                 ${linkWithMaintainers.maintainers.length > 1 ? html`
-                  <form method="POST" action="/dashboard/links/${slug}/remove-maintainer" style="display: inline;">
+                  <form method="POST" action="/dashboard/outies/${slug}/remove-maintainer" style="display: inline;">
                     <input type="hidden" name="email" value="${maintainerEmail}" />
                     <button type="submit" class="btn btn-secondary" style="padding: 5px 10px; font-size: 13px;" onclick="return confirm('Remove ${maintainerEmail} as maintainer?')">Remove</button>
                   </form>
@@ -607,7 +607,7 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
             `)}
           </ul>
           
-          <form method="POST" action="/dashboard/links/${slug}/add-maintainer" style="margin-top: 20px; display: flex; gap: 10px;">
+          <form method="POST" action="/dashboard/outies/${slug}/add-maintainer" style="margin-top: 20px; display: flex; gap: 10px;">
             <input type="email" name="email" placeholder="user@example.com" required style="flex: 1;" />
             <button type="submit">Add Maintainer</button>
           </form>
@@ -616,8 +616,8 @@ dashboard.get("/links/view/:slug", authMiddleware, async (c) => {
         <div class="card">
           <h3>Actions</h3>
           <div class="actions">
-            <a href="/dashboard/links/edit/${slug}" class="btn">Edit Content</a>
-            <form method="POST" action="/dashboard/links/delete/${slug}" style="display: inline;">
+            <a href="/dashboard/outies/edit/${slug}" class="btn">Edit Content</a>
+            <form method="POST" action="/dashboard/outies/delete/${slug}" style="display: inline;">
               <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete this outie?')">Delete</button>
             </form>
           </div>
@@ -660,7 +660,7 @@ dashboard.post("/links/:slug/add-maintainer", authMiddleware, async (c) => {
   }
 
   await addMaintainer(slug, newMaintainerEmail, email);
-  return c.redirect(`/dashboard/links/view/${slug}`);
+  return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
 // Remove maintainer
@@ -690,7 +690,7 @@ dashboard.post("/links/:slug/remove-maintainer", authMiddleware, async (c) => {
   }
 
   await removeMaintainer(slug, removeMaintainerEmail);
-  return c.redirect(`/dashboard/links/view/${slug}`);
+  return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
 // Edit link
@@ -768,7 +768,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
         </script>
 
         <h2>Edit: ${slug}</h2>
-        <form method="POST" action="/dashboard/links/edit/${slug}">
+        <form method="POST" action="/dashboard/outies/edit/${slug}">
           <label for="title">Page Title (Optional)</label>
           <input type="text" id="title" name="title" value="${link.title || ''}" placeholder="Enter a title for your outie">
           
@@ -839,7 +839,7 @@ dashboard.get("/links/edit/:slug", authMiddleware, async (c) => {
           </div>
           
           <button type="submit" style="margin-top: 20px;">Save Changes</button>
-          <a href="/dashboard/links/view/${slug}" style="margin-left: 10px;">Cancel</a>
+          <a href="/dashboard/outies/view/${slug}" style="margin-left: 10px;">Cancel</a>
         </form>
       `,
       scripts: ['/theme-customizer.js']
@@ -882,7 +882,7 @@ dashboard.post("/links/edit/:slug", authMiddleware, async (c) => {
     custom_css,
   });
 
-  return c.redirect(`/dashboard/links/view/${slug}`);
+  return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
 // Delete link handler
@@ -963,7 +963,7 @@ dashboard.get("/links/:slug/qr", authMiddleware, async (c) => {
         <div class="actions">
           <button class="btn" onclick="downloadQRCode()">Download QR Code</button>
           <button class="btn" onclick="window.print()">Print QR Code</button>
-          <a href="/dashboard/links/view/${slug}" class="btn btn-secondary">Back to Link</a>
+          <a href="/dashboard/outies/view/${slug}" class="btn btn-secondary">Back to Link</a>
         </div>
 
         <p class="info-text">
