@@ -1,3 +1,11 @@
+// API payload from client-side tracking script
+export interface TrackingPayload {
+  url: string;
+  out: string | null;
+  link_text?: string | null;
+  visitor_id?: string;
+}
+
 // Click tracking event that goes into the pipeline (v6 - no owner_email)
 export interface ClickEvent {
   timestamp: string;
