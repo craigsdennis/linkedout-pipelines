@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { BaseLayout } from "../views/layouts";
+import { html } from "hono/html";
+import { AuthLayout } from "../views/layouts";
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -9,13 +10,17 @@ const auth = new Hono<{ Bindings: Env }>();
  */
 auth.get("/login", (c) => {
   return c.html(
-    `<!DOCTYPE html>
-    <html>
-      <head>
-        <title>Login - LinkedOut</title>
-        <link rel="stylesheet" href="/styles.css">
+    AuthLayout({
+      title: "Login",
+      children: html`
         <style>
-          body { font-family: system-ui; max-width: 600px; margin: 100px auto; padding: 20px; text-align: center; }
+          .auth-layout { 
+            font-family: system-ui; 
+            max-width: 600px; 
+            margin: 100px auto; 
+            padding: 20px; 
+            text-align: center; 
+          }
           h1 { color: #f38020; }
           .cta { 
             display: inline-block; 
@@ -29,16 +34,14 @@ auth.get("/login", (c) => {
           }
           .cta:hover { background: #0052a3; }
         </style>
-      </head>
-      <body>
         <h1>Welcome to LinkedOut</h1>
         <p>Share links, track clicks, and manage your content.</p>
         <a href="/dashboard" class="cta">Continue to Dashboard</a>
         <p style="font-size: 14px; color: #666; margin-top: 40px;">
           You'll be asked to authenticate via Cloudflare Access
         </p>
-      </body>
-    </html>`
+      `,
+    })
   );
 });
 
@@ -47,7 +50,7 @@ auth.get("/login", (c) => {
  * This clears the Cloudflare Access session
  */
 auth.get("/logout", async (c) => {
-  return c.redirect("https://craigsone.cloudflareaccess.com/cdn-cgi/access/logout");
+  return c.redirect(`https://${c.env.CLOUDFLARE_ACCESS_APPLICATION}.cloudflareaccess.com/cdn-cgi/access/logout`);
 });
 
 export default auth;
