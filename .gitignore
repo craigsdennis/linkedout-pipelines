@@ -4,7 +4,12 @@ dist/
 # build artifacts (TypeScript compilation)
 src/**/*.js
 src/**/*.js.map
+test/**/*.js
+test/**/*.js.map
 *.tsbuildinfo
+# Ignore JS versions of root config files (only keep .ts)
+/vitest.config.js
+/tsconfig.json
 
 # dev
 .yarn/
