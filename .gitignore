@@ -1,6 +1,11 @@
 # prod
 dist/
 
+# build artifacts (TypeScript compilation)
+src/**/*.js
+src/**/*.js.map
+*.tsbuildinfo
+
 # dev
 .yarn/
 !.yarn/releases
