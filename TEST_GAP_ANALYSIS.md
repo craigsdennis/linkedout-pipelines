@@ -1,7 +1,10 @@
 # Test Gap Analysis: Why Routes Weren't Tested
 
-## The Issue
-Dashboard routes were using `/links/` instead of `/outies/`, but all 115 tests passed. This indicates a **test coverage gap**.
+## Status: ✅ RESOLVED
+**26 new route integration tests added. All 141 tests now passing.**
+
+## The Issue (Historical)
+Dashboard routes were using `/links/` instead of `/outies/`, but all 115 tests passed. This indicated a **test coverage gap**.
 
 ## Current Test Coverage
 
@@ -151,11 +154,33 @@ describe("Outie Creation Flow", () => {
 
 ## Action Items
 
-- [ ] Add `test/routes/dashboard.test.ts` with CRUD route tests
-- [ ] Add `test/routes/public.test.ts` for `/out/:slug` and `/q/:slug`
-- [ ] Add route smoke tests to CI/CD
-- [ ] Create refactoring checklist in CONTRIBUTING.md
-- [ ] Consider adding route manifest validation
+- [x] Add `test/routes/dashboard.test.ts` with CRUD route tests (15 tests)
+- [x] Add `test/routes/public.test.ts` for `/out/:slug` and `/q/:slug` (11 tests)
+- [ ] Add route smoke tests to CI/CD (optional enhancement)
+- [ ] Create refactoring checklist in CONTRIBUTING.md (optional)
+- [ ] Consider adding route manifest validation (optional)
+
+## Resolution Summary
+
+**Added 26 new integration tests** using `@cloudflare/vitest-pool-workers` with SELF fetcher:
+
+### Dashboard Routes (15 tests)
+- ✅ All CRUD operations: create, view, edit, delete
+- ✅ QR code generation page
+- ✅ Maintainer management (add/remove)
+- ✅ Permission enforcement (403 for unauthorized users)
+- ✅ Legacy route rejection (/dashboard/links/* returns 404)
+
+### Public Routes (11 tests)
+- ✅ Homepage, public outie pages, QR redirects
+- ✅ Markdown rendering, custom CSS application
+- ✅ Tracking API, static assets
+- ✅ Auth routes (login, logout)
+
+### Test Count
+- Before: 115 tests
+- After: **141 tests** (all passing ✅)
+- New coverage: **+26 route integration tests**
 
 ## Related Files
 - Test suite: `test/`
