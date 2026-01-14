@@ -182,7 +182,6 @@ Authenticated (/dashboard/*):
   /dashboard/links/:slug/edit - Edit link
   /dashboard/analytics - Analytics (filterable by slug)
   /dashboard/api/preview - Markdown preview endpoint (POST)
-  /dashboard/debug-headers - JWT debugging (shows headers)
 
 Admin Only:
   /dashboard/admin - User management + global map
@@ -322,10 +321,11 @@ npx wrangler tail --format pretty
 ```
 
 ### Check JWT Authentication
-Visit `/dashboard/debug-headers` to see:
-- JWT presence and length
-- All request headers
-- Useful for debugging Access issues
+Use browser developer tools or Wrangler logs to inspect headers:
+```bash
+# View live Worker logs including request headers
+npx wrangler tail --format pretty
+```
 
 ### Query D1 Database
 ```bash

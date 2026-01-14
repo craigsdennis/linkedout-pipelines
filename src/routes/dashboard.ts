@@ -36,49 +36,6 @@ type Variables = {
 
 const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Debug endpoint to check headers (bypasses auth middleware)
-dashboard.get("/debug-headers", async (c) => {
-  const headers = Object.fromEntries(c.req.raw.headers.entries());
-  const jwtHeader = c.req.header('Cf-Access-Jwt-Assertion');
-  
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Header Debug - LinkedOut</title>
-        <link rel="stylesheet" href="/styles.css">
-        <style>
-          body { font-family: monospace; padding: 20px; max-width: 1000px; margin: 0 auto; }
-          h1 { font-family: system-ui; }
-          pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; }
-          .found { color: green; font-weight: bold; }
-          .missing { color: red; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <h1>🔍 Header Debug</h1>
-        
-        <h2>JWT Status</h2>
-        <p class="${jwtHeader ? 'found' : 'missing'}">
-          ${jwtHeader ? '✓ Cf-Access-Jwt-Assertion header FOUND' : '✗ Cf-Access-Jwt-Assertion header MISSING'}
-        </p>
-        
-        ${jwtHeader ? `
-          <h3>JWT Value (first 100 chars):</h3>
-          <pre>${jwtHeader.substring(0, 100)}...</pre>
-        ` : ''}
-        
-        <h2>All Request Headers</h2>
-        <pre>${JSON.stringify(headers, null, 2)}</pre>
-        
-        <p style="margin-top: 30px;">
-          <a href="/dashboard">← Back to Dashboard</a>
-        </p>
-      </body>
-    </html>
-  `);
-});
-
 // Dashboard - user's links overview
 dashboard.get("/", authMiddleware, async (c) => {
   const email = c.get("userEmail");
