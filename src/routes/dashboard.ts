@@ -1064,7 +1064,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       SELECT 
         event_type,
         COUNT(*)
-      FROM default.click_events_v6
+      FROM default.events
       ${whereClause}
       GROUP BY event_type
     `;
@@ -1079,7 +1079,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         city,
         region,
         country
-      FROM default.click_events_v6
+      FROM default.events
       ${whereClause}
       ORDER BY __ingest_ts DESC
       LIMIT 20
@@ -1089,7 +1089,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       SELECT 
         out,
         COUNT(*)
-      FROM default.click_events_v6
+      FROM default.events
       ${whereClause}
         AND event_type = 'click'
         AND out IS NOT NULL
@@ -1102,7 +1102,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
         link_text,
         out,
         COUNT(*)
-      FROM default.click_events_v6
+      FROM default.events
       ${whereClause}
         AND event_type = 'click'
         AND link_text IS NOT NULL
@@ -1115,7 +1115,7 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
       SELECT 
         slug,
         COUNT(*)
-      FROM default.click_events_v6
+      FROM default.events
       ${whereClause}
         AND event_type = 'click'
       GROUP BY slug

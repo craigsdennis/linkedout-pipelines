@@ -21,7 +21,7 @@ export interface R2SQLResponse {
  * 
  * @example
  * const result = await queryR2SQL(
- *   'SELECT COUNT(*) FROM default.click_events_v6 WHERE event_type = "page_view"'
+ *   'SELECT COUNT(*) FROM default.events WHERE event_type = "page_view"'
  * );
  * 
  * if (result.result?.rows) {

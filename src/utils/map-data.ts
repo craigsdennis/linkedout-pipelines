@@ -70,7 +70,7 @@ async function queryLocationStats(): Promise<MapData> {
         COUNT(*),
         latitude,
         longitude
-      FROM default.click_events_v6
+      FROM default.events
       WHERE event_type = 'page_view' 
         AND country IS NOT NULL
         AND country != ''
