@@ -147,7 +147,7 @@ declare module "cloudflare:test" {
 - **Response Structure**: `{result: {rows: [...]}}` NOT `{data: [...]}`
 - **No Aliases**: Don't use `AS` - use `row['count(*)']` not `row.count`
 - **Partition Keys**: Only `ORDER BY __ingest_ts` (partition key), not `timestamp`
-- **Table**: `default.click_events_v6` (current schema)
+- **Table**: `default.events` (current schema)
 
 ### Error Handling
 5-layer pattern:
@@ -192,10 +192,14 @@ Admin Only:
 ```
 
 ### Pipeline Configuration
-- **Stream**: `click_events_v6` (15 event fields, no `owner_email`)
-- **Batch Interval**: 300 seconds (5 minutes)
-- **Table**: `default.click_events_v6` in R2 Data Catalog (Iceberg)
+- **Binding**: `EVENT_STREAM` (renamed from CLICK_STREAM)
+- **Stream**: `event_stream` (ID: 4fe2606a2aa74a6990662fcc5d508517)
+- **Sink**: `events_sink` → R2 Data Catalog
+- **Table**: `default.events` in R2 Data Catalog (Iceberg)
+- **Batch Interval**: 30 seconds (changed from 300s for faster delivery)
+- **Format**: Parquet with zstd compression
 - **Event Types**: `page_view`, `click`, `qr_scan`
+- **Schema**: 16 event fields (timestamp, event_type, slug, visitor_id, url, out, link_text, user_agent, referer, country, city, region, colo, latitude, longitude, timezone)
 - **Location Fields**: `country`, `city`, `region`, `latitude`, `longitude`
 
 ### Database Schema (D1)
