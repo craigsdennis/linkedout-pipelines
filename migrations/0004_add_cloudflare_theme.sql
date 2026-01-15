@@ -1,21 +1,21 @@
 -- Add Cloudflare Developer theme inspired by developers.cloudflare.com
--- Clean, professional design with Cloudflare's signature orange accent
+-- Warm, earthy color palette with Cloudflare's signature orange accent
 
 INSERT INTO themes (id, name, description, css_variables, additional_css, created_by, is_public, created_at) VALUES (
   'cloudflare',
   'Cloudflare',
-  'Clean and professional theme inspired by Cloudflare Developers',
+  'Warm, professional theme inspired by Cloudflare Developers',
   json('{
-    "--primary-color": "#f38020",
-    "--secondary-color": "#0051c3",
-    "--background": "#ffffff",
-    "--text-color": "#1f2937",
-    "--text-muted": "#6b7280",
-    "--link-color": "#0051c3",
-    "--link-hover": "#f38020",
-    "--border-color": "#e5e7eb",
-    "--code-background": "#f3f4f6",
-    "--heading-color": "#111827"
+    "--primary-color": "#f6821f",
+    "--secondary-color": "#c4603c",
+    "--background": "#faf9f7",
+    "--text-color": "#5c524a",
+    "--text-muted": "#9b8b7a",
+    "--link-color": "#c4603c",
+    "--link-hover": "#f6821f",
+    "--border-color": "#e8e4df",
+    "--code-background": "#f0ede8",
+    "--heading-color": "#9b8b7a"
   }'),
   '/* Cloudflare Developer Theme */
 
@@ -146,7 +146,7 @@ th {
 }
 
 tr:nth-child(even) {
-  background: #fafafa;
+  background: #f5f2ee;
 }
 
 /* Paragraphs */
