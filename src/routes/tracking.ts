@@ -1,7 +1,7 @@
 import { waitUntil } from "cloudflare:workers";
 import { Hono } from "hono";
 import type { ClickEvent, TrackingPayload } from "../types";
-import { getLink } from "../utils/db";
+import { getOutie } from "../utils/db";
 import { getCfProperties } from "../utils/helpers";
 
 const tracking = new Hono<{ Bindings: Env }>();
@@ -18,7 +18,7 @@ tracking.post("/api/track", async (c) => {
 	}
 
 	const slug = match[1];
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
 		return c.body(null, 204);
 	}

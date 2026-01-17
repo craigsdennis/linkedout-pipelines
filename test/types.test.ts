@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { ClickEvent, Link, User } from "../src/types";
+import type { ClickEvent, Outie, User } from "../src/types";
 
 describe("TypeScript Types", () => {
   describe("ClickEvent", () => {
@@ -52,9 +52,9 @@ describe("TypeScript Types", () => {
     });
   });
 
-  describe("Link", () => {
-    it("should accept valid link with theme", () => {
-      const link: Link = {
+  describe("Outie", () => {
+    it("should accept valid outie with theme", () => {
+      const link: Outie = {
         slug: "my-page",
         title: null,
         content: "# Hello World\n\n[Link](https://example.com)",
@@ -70,8 +70,8 @@ describe("TypeScript Types", () => {
       expect(link.theme_id).toBe("default");
     });
 
-    it("should accept link with title", () => {
-      const link: Link = {
+    it("should accept outie with title", () => {
+      const link: Outie = {
         slug: "styled-page",
         title: "My Styled Page",
         content: "# Styled Page",

@@ -4,7 +4,7 @@
  */
 
 import { env } from "cloudflare:workers";
-import type { User, Link, LinkWithMaintainers, LinkMaintainer, Theme } from "../types";
+import type { User, Outie, OutieWithMaintainers, OutieMaintainer, Theme } from "../types";
 
 // ==================== USER OPERATIONS ====================
 
@@ -70,10 +70,10 @@ export async function getAllUsers(): Promise<User[]> {
   }));
 }
 
-// ==================== LINK OPERATIONS ====================
+// ==================== OUTIE OPERATIONS ====================
 
-export async function getLink(slug: string
-): Promise<Link | null> {
+export async function getOutie(slug: string
+): Promise<Outie | null> {
   const result = await env.DB
     .prepare(
       "SELECT slug, title, content, theme_id, created_by, created_at, updated_at, custom_css FROM outies WHERE slug = ?"
@@ -104,54 +104,54 @@ export async function getLink(slug: string
   };
 }
 
-export async function getLinkWithMaintainers(slug: string
-): Promise<LinkWithMaintainers | null> {
-  const link = await getLink(slug);
-  if (!link) return null;
+export async function getOutieWithMaintainers(slug: string
+): Promise<OutieWithMaintainers | null> {
+  const outie = await getOutie(slug);
+  if (!outie) return null;
 
-  const maintainers = await getLinkMaintainers(slug);
+  const maintainers = await getOutieMaintainers(slug);
 
   return {
-    ...link,
+    ...outie,
     maintainers: maintainers.map((m) => m.user_email),
   };
 }
 
-export async function createLink(link: Omit<Link, "created_at" | "updated_at">,
+export async function createOutie(outie: Omit<Outie, "created_at" | "updated_at">,
   maintainerEmail: string
-): Promise<Link> {
+): Promise<Outie> {
   const now = new Date().toISOString();
-  const fullLink: Link = {
-    ...link,
+  const fullOutie: Outie = {
+    ...outie,
     created_at: now,
     updated_at: now,
   };
 
-  // Insert link
+  // Insert outie
   await env.DB
     .prepare(
       "INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at, custom_css) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(
-      fullLink.slug,
-      fullLink.title,
-      fullLink.content,
-      fullLink.theme_id,
-      fullLink.created_by,
-      fullLink.created_at,
-      fullLink.updated_at,
-      fullLink.custom_css
+      fullOutie.slug,
+      fullOutie.title,
+      fullOutie.content,
+      fullOutie.theme_id,
+      fullOutie.created_by,
+      fullOutie.created_at,
+      fullOutie.updated_at,
+      fullOutie.custom_css
     )
     .run();
 
   // Add creator as first maintainer
-  await addMaintainer(fullLink.slug, maintainerEmail, maintainerEmail);
+  await addMaintainer(fullOutie.slug, maintainerEmail, maintainerEmail);
 
-  return fullLink;
+  return fullOutie;
 }
 
-export async function updateLink(slug: string,
-  updates: Partial<Pick<Link, "title" | "content" | "theme_id" | "custom_css">>
+export async function updateOutie(slug: string,
+  updates: Partial<Pick<Outie, "title" | "content" | "theme_id" | "custom_css">>
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -189,13 +189,13 @@ export async function updateLink(slug: string,
     .run();
 }
 
-export async function deleteLink(slug: string
+export async function deleteOutie(slug: string
 ): Promise<void> {
   await env.DB.prepare("DELETE FROM outies WHERE slug = ?").bind(slug).run();
 }
 
-export async function getUserLinks(email: string
-): Promise<Link[]> {
+export async function getUserOuties(email: string
+): Promise<Outie[]> {
   const result = await env.DB
     .prepare(
       `SELECT DISTINCT l.slug, l.title, l.content, l.theme_id, l.created_by, l.created_at, l.updated_at, l.custom_css
@@ -232,7 +232,7 @@ export async function getUserLinks(email: string
 
 // ==================== MAINTAINER OPERATIONS ====================
 
-export async function canUserAccessLink(slug: string,
+export async function canUserAccessOutie(slug: string,
   email: string
 ): Promise<boolean> {
   const result = await env.DB
@@ -270,8 +270,8 @@ export async function removeMaintainer(slug: string,
     .run();
 }
 
-export async function getLinkMaintainers(slug: string
-): Promise<LinkMaintainer[]> {
+export async function getOutieMaintainers(slug: string
+): Promise<OutieMaintainer[]> {
   const result = await env.DB
     .prepare(
       "SELECT outie_slug, user_email, added_at, added_by FROM outie_maintainers WHERE outie_slug = ? ORDER BY added_at ASC"

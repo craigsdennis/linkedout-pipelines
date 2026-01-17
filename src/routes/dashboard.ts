@@ -7,20 +7,20 @@ import type { ClickEvent } from "../types";
 import { createUser, getUser } from "../utils/auth";
 import {
 	addMaintainer,
-	canUserAccessLink,
-	createLink,
-	deleteLink,
+	canUserAccessOutie,
+	createOutie,
+	deleteOutie,
 	deleteUser,
 	getAllUsers,
-	getLink,
-	getLinkMaintainers,
-	getLinkWithMaintainers,
+	getOutie,
+	getOutieMaintainers,
+	getOutieWithMaintainers,
 	getPublicThemes,
 	getTheme,
 	getUserAccessibleSlugs,
-	getUserLinks,
+	getUserOuties,
 	removeMaintainer,
-	updateLink,
+	updateOutie,
 } from "../utils/db";
 import {
 	generateThemeCSS,
@@ -46,8 +46,8 @@ dashboard.get("/", authMiddleware, async (c) => {
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	// Get user's accessible links from D1
-	const userLinks = await getUserLinks(email);
+	// Get user's accessible outies from D1
+	const userLinks = await getUserOuties(email);
 
 	return c.html(
 		DashboardLayout({
@@ -513,13 +513,13 @@ dashboard.post("/outies/create", authMiddleware, async (c) => {
 	}
 
 	// Check if slug already exists
-	const existing = await getLink(slug);
+	const existing = await getOutie(slug);
 	if (existing) {
 		return c.html("This slug is already taken. Please choose another.", 400);
 	}
 
-	// Create link in D1 (also adds creator as maintainer)
-	await createLink(
+	// Create outie in D1 (also adds creator as maintainer)
+	await createOutie(
 		{
 			slug,
 			title,
@@ -534,20 +534,20 @@ dashboard.post("/outies/create", authMiddleware, async (c) => {
 	return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
-// View/edit link
+// View/edit outie
 dashboard.get("/outies/view/:slug", authMiddleware, async (c) => {
 	const { slug } = c.req.param();
 	const email = c.get("userEmail");
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	const linkWithMaintainers = await getLinkWithMaintainers(slug);
+	const linkWithMaintainers = await getOutieWithMaintainers(slug);
 	if (!linkWithMaintainers) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -675,7 +675,7 @@ dashboard.post("/outies/:slug/add-maintainer", authMiddleware, async (c) => {
 	const isAdmin = c.get("isAdmin");
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -694,7 +694,7 @@ dashboard.post("/outies/:slug/add-maintainer", authMiddleware, async (c) => {
 	}
 
 	// Check if already a maintainer
-	const existingMaintainer = await canUserAccessLink(slug, newMaintainerEmail);
+	const existingMaintainer = await canUserAccessOutie(slug, newMaintainerEmail);
 	if (existingMaintainer) {
 		return c.html("User is already a maintainer", 400);
 	}
@@ -711,7 +711,7 @@ dashboard.post("/outies/:slug/remove-maintainer", authMiddleware, async (c) => {
 	const isAdmin = c.get("isAdmin");
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -724,7 +724,7 @@ dashboard.post("/outies/:slug/remove-maintainer", authMiddleware, async (c) => {
 	}
 
 	// Check if this is the last maintainer
-	const maintainers = await getLinkMaintainers(slug);
+	const maintainers = await getOutieMaintainers(slug);
 	if (maintainers.length <= 1) {
 		return c.html("Cannot remove the last maintainer", 400);
 	}
@@ -733,20 +733,20 @@ dashboard.post("/outies/:slug/remove-maintainer", authMiddleware, async (c) => {
 	return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
-// Edit link
+// Edit outie
 dashboard.get("/outies/edit/:slug", authMiddleware, async (c) => {
 	const { slug } = c.req.param();
 	const email = c.get("userEmail");
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -889,20 +889,20 @@ dashboard.get("/outies/edit/:slug", authMiddleware, async (c) => {
 	);
 });
 
-// Edit link handler
+// Edit outie handler
 dashboard.post("/outies/edit/:slug", authMiddleware, async (c) => {
 	const { slug } = c.req.param();
 	const email = c.get("userEmail");
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -917,7 +917,7 @@ dashboard.post("/outies/edit/:slug", authMiddleware, async (c) => {
 		return c.html("Content is required", 400);
 	}
 
-	await updateLink(slug, {
+	await updateOutie(slug, {
 		content,
 		title,
 		theme_id,
@@ -927,25 +927,25 @@ dashboard.post("/outies/edit/:slug", authMiddleware, async (c) => {
 	return c.redirect(`/dashboard/outies/view/${slug}`);
 });
 
-// Delete link handler
+// Delete outie handler
 dashboard.post("/outies/delete/:slug", authMiddleware, async (c) => {
 	const { slug } = c.req.param();
 	const email = c.get("userEmail");
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
 
-	await deleteLink(slug);
+	await deleteOutie(slug);
 
 	return c.redirect("/dashboard");
 });
@@ -957,13 +957,13 @@ dashboard.get("/outies/:slug/qr", authMiddleware, async (c) => {
 	const userName = c.get("userName");
 	const isAdmin = c.get("isAdmin");
 
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Check if user has access
-	const hasAccess = await canUserAccessLink(slug, email);
+	const hasAccess = await canUserAccessOutie(slug, email);
 	if (!hasAccess) {
 		return c.html("Access denied", 403);
 	}
@@ -1020,9 +1020,9 @@ dashboard.get("/outies/:slug/qr", authMiddleware, async (c) => {
 dashboard.get("/q/:slug", async (c) => {
 	const { slug } = c.req.param();
 
-	const link = await getLink(slug);
+	const link = await getOutie(slug);
 	if (!link) {
-		return c.html("Link not found", 404);
+		return c.html("Outie not found", 404);
 	}
 
 	// Track QR scan (NO owner_email in v6)
@@ -1087,9 +1087,9 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
 
 		if (slugFilter) {
 			// Single slug filter - check if user has access
-			const hasAccess = await canUserAccessLink(slugFilter, email);
+			const hasAccess = await canUserAccessOutie(slugFilter, email);
 			if (!hasAccess) {
-				throw new Error("Access denied to this link");
+				throw new Error("Access denied to this outie");
 			}
 			whereClause = `WHERE slug = '${slugFilter}'`;
 		} else {
@@ -1242,10 +1242,10 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
 		// Process slug data (only when not filtering by slug)
 		const slugRows = slugData.result?.rows;
 		if (slugRows && slugRows.length > 0) {
-			// Fetch link titles from D1 for each slug (in parallel)
+			// Fetch outie titles from D1 for each slug (in parallel)
 			const slugsWithTitles = await Promise.all(
 				slugRows.map(async (row: any) => {
-					const link = await getLink(row.slug);
+					const link = await getOutie(row.slug);
 					return {
 						slug: row.slug,
 						title: link?.title || null,
