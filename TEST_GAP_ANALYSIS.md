@@ -61,7 +61,7 @@ But **route handlers weren't tested** because:
 
 ### 2. **Database Function Names Changed, Route URLs Didn't**
 During the "Link → Outie" refactoring:
-- ✅ Database functions: `getLink()` → `getOutie()` (tested, caught by TypeScript)
+- ✅ Database functions: `getLink()` → `getOutie()` (renamed, caught by TypeScript)
 - ✅ TypeScript types: `Link` → `Outie` (tested, caught by type checks)
 - ❌ **Route URLs**: `/links/` → `/outies/` (not tested, silently worked with old URLs)
 

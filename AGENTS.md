@@ -43,9 +43,9 @@ const result = await someFunction();         // ← RIGHT (uses env.DB internall
 - **All functions use global env**: Don't pass `c.env.DB` as parameter
 - **Examples**: 
   - `getUser(email)` - get user by email
-  - `createLink(linkData, maintainerEmail)` - create link with maintainer
-  - `getUserLinks(email)` - get all links user can access
-  - `canUserAccessLink(slug, email)` - check permissions
+  - `createOutie(outieData, maintainerEmail)` - create outie with maintainer
+  - `getUserOuties(email)` - get all outies user can access
+  - `canUserAccessOutie(slug, email)` - check permissions
 - **Direct SQL**: Use `c.env.DB.prepare()` only for queries not in db.ts utilities
 
 ### Authentication
@@ -159,8 +159,8 @@ declare module "cloudflare:test" {
 
 ### Naming Conventions
 - **Files/Slugs**: kebab-case (`user-profile.ts`, `my-talk`)
-- **Variables/Functions**: camelCase (`getUserLinks`, `isAdmin`)
-- **Types/Interfaces**: PascalCase (`User`, `LinkWithMaintainers`)
+- **Variables/Functions**: camelCase (`getUserOuties`, `isAdmin`)
+- **Types/Interfaces**: PascalCase (`User`, `OutieWithMaintainers`)
 - **Database Fields**: snake_case (`is_admin`, `created_at`)
 - **No Suffixes**: Functions are `getUser()` not `getUserFromDB()`
 
@@ -192,8 +192,8 @@ Admin Only:
 ```
 
 ### Pipeline Configuration
-- **Binding**: `EVENT_STREAM` (renamed from CLICK_STREAM)
-- **Stream**: `event_stream` (ID: 4fe2606a2aa74a6990662fcc5d508517)
+- **Binding**: `EVENT_PIPELINE`
+- **Stream**: `event_pipeline` (ID: 4fe2606a2aa74a6990662fcc5d508517)
 - **Sink**: `events_sink` → R2 Data Catalog
 - **Table**: `default.events` in R2 Data Catalog (Iceberg)
 - **Batch Interval**: 30 seconds (changed from 300s for faster delivery)
@@ -238,10 +238,10 @@ Admin Only:
 ### Key Features
 
 **Multi-Maintainer System**:
-- Links can have multiple maintainers (many-to-many)
+- Outies can have multiple maintainers (many-to-many)
 - All maintainers have equal permissions
 - Creator automatically added as first maintainer
-- Use `getUserLinks(email)` to get all links user can access
+- Use `getUserOuties(email)` to get all outies user can access
 
 **Theme System**:
 - 6 pre-built themes: default, dark, minimal, colorful, conference, retro

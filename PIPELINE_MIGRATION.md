@@ -5,8 +5,8 @@
 
 ## What Was Done
 
-### 1. Binding Rename: CLICK_STREAM → EVENT_STREAM
-- Updated all source files to use `EVENT_STREAM` binding
+### 1. Binding Rename: CLICK_STREAM → EVENT_PIPELINE
+- Updated all source files to use `EVENT_PIPELINE` binding
 - Files changed: `wrangler.jsonc`, `worker-configuration.d.ts`, `src/index.tsx`, `src/routes/tracking.ts`, `src/routes/dashboard.ts`
 
 ### 2. Created New Pipeline Infrastructure via Wrangler CLI
@@ -34,7 +34,7 @@
 ### 4. Deployed to Production
 - Version: `98b5e001-2b9b-412a-a37b-1bb4f58b2e45`
 - URL: https://linkedout-pipelines.craigsdemos.workers.dev
-- EVENT_STREAM binding active and working
+- EVENT_PIPELINE binding active and working
 
 ## Implementation Notes
 
