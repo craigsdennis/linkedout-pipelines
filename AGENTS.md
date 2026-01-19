@@ -192,7 +192,7 @@ Admin Only:
 ```
 
 ### Pipeline Configuration
-- **Binding**: `EVENT_STREAM` (renamed from CLICK_STREAM)
+- **Binding**: `EVENT_STREAM`
 - **Stream**: `event_stream` (ID: 4fe2606a2aa74a6990662fcc5d508517)
 - **Sink**: `events_sink` → R2 Data Catalog
 - **Table**: `default.events` in R2 Data Catalog (Iceberg)

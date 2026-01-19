@@ -230,7 +230,7 @@ Pipelines ingest high-volume event data without overwhelming downstream systems:
 
 ```typescript
 // Write event to stream
-await env.CLICK_STREAM.send([{
+await env.EVENT_STREAM.send([{
   timestamp: new Date().toISOString(),
   event_type: 'click',
   slug: 'my-talk',

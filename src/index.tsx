@@ -197,11 +197,11 @@ app.get("/q/:slug", async (c) => {
 
 	waitUntil(
 		(async () => {
-			console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
-			try {
-				await c.env.CLICK_STREAM.send([qrScanEvent]);
-				console.log("qr_scan event sent successfully");
-			} catch (err) {
+		console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
+		try {
+			await c.env.EVENT_STREAM.send([qrScanEvent]);
+			console.log("qr_scan event sent successfully");
+		} catch (err) {
 				console.error("Failed to send qr_scan event:", err);
 				console.error("Event was:", JSON.stringify(qrScanEvent));
 			}
