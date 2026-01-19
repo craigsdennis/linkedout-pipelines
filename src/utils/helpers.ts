@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ClickEvent, Theme } from "../types";
 
@@ -5,7 +6,7 @@ import type { ClickEvent, Theme } from "../types";
 export function getCfProperties(request: Request): Partial<ClickEvent> {
   const cf = (request as any).cf;
   if (!cf) return {};
-  
+
   return {
     country: cf.country || undefined,
     city: cf.city || undefined,
@@ -18,7 +19,7 @@ export function getCfProperties(request: Request): Partial<ClickEvent> {
 }
 
 // Helper to get visitor ID from cookie
-export function getVisitorId(c: any): string | undefined {
+export function getVisitorId(c: Context): string | undefined {
   return getCookie(c, "_lo_vid");
 }
 
@@ -30,16 +31,16 @@ export function getVisitorId(c: any): string | undefined {
  */
 export function generateThemeCSS(
   theme: Theme | null,
-  customCSS: string | null = null
+  customCSS: string | null = null,
 ): string {
-  let css = '';
+  let css = "";
 
   // 1. Add theme CSS variables as :root
   if (theme?.css_variables) {
     const cssVars = Object.entries(theme.css_variables)
       .map(([key, value]) => `  ${key}: ${value};`)
-      .join('\n');
-    
+      .join("\n");
+
     css += `:root {\n${cssVars}\n}\n\n`;
   }
 
@@ -62,14 +63,14 @@ export function generateThemeCSS(
  * @returns CSS string with variables and additional styles
  */
 export function getThemeSourceCSS(theme: Theme): string {
-  let css = '';
+  let css = "";
 
   // CSS variables
   if (theme.css_variables) {
     const cssVars = Object.entries(theme.css_variables)
       .map(([key, value]) => `  ${key}: ${value};`)
-      .join('\n');
-    
+      .join("\n");
+
     css += `/* CSS Variables from ${theme.name} theme */\n:root {\n${cssVars}\n}\n\n`;
   }
 
