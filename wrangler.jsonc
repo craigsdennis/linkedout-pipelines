@@ -31,7 +31,7 @@
 	],
 	"pipelines": [
 		{
-			"binding": "EVENT_PIPELINE",
+			"binding": "EVENT_STREAM",
 			"pipeline": "4fe2606a2aa74a6990662fcc5d508517"
 		}
 	],

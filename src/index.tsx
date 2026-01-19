@@ -35,7 +35,7 @@ app.get(
 	"/out/*",
 	jsxRenderer(({ children }) => {
 		return (
-			<html lang="en-US">
+			<html>
 				<head>
 					<title>LinkedOut</title>
 					<link rel="icon" type="image/png" href="/favicon.png" />
@@ -57,7 +57,6 @@ app.get("/out/:slug", async (c) => {
 	// Get outie from D1
 	const link = await getOutie(slug);
 	if (!link) {
-    // TODO: Create a path to make it theirs
 		return c.html("<h1>404 - Outie not found</h1>", 404);
 	}
 
@@ -95,11 +94,11 @@ app.get("/out/:slug", async (c) => {
 
 	waitUntil(
 		(async () => {
-		console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
-		try {
-			await c.env.EVENT_PIPELINE.send([pageViewEvent]);
-			console.log("page_view event sent successfully");
-		} catch (err) {
+			console.log("Sending page_view event:", JSON.stringify(pageViewEvent));
+			try {
+				await c.env.EVENT_STREAM.send([pageViewEvent]);
+				console.log("page_view event sent successfully");
+			} catch (err) {
 				console.error("Failed to send page_view event:", err);
 				console.error("Event was:", JSON.stringify(pageViewEvent));
 			}
@@ -198,11 +197,11 @@ app.get("/q/:slug", async (c) => {
 
 	waitUntil(
 		(async () => {
-		console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
-		try {
-			await c.env.EVENT_PIPELINE.send([qrScanEvent]);
-			console.log("qr_scan event sent successfully");
-		} catch (err) {
+			console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
+			try {
+				await c.env.CLICK_STREAM.send([qrScanEvent]);
+				console.log("qr_scan event sent successfully");
+			} catch (err) {
 				console.error("Failed to send qr_scan event:", err);
 				console.error("Event was:", JSON.stringify(qrScanEvent));
 			}

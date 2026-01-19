@@ -162,7 +162,7 @@ Update `wrangler.jsonc` with the pipeline ID:
 {
   "pipelines": [
     {
-      "binding": "EVENT_PIPELINE",
+      "binding": "CLICK_STREAM",
       "pipeline": "your-pipeline-id-here"
     }
   ],

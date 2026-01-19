@@ -1041,7 +1041,7 @@ dashboard.get("/q/:slug", async (c) => {
 	// Write to pipeline (await to ensure delivery)
 	console.log("Sending qr_scan event:", JSON.stringify(qrScanEvent));
 	try {
-		await c.env.EVENT_PIPELINE.send([qrScanEvent]);
+		await c.env.EVENT_STREAM.send([qrScanEvent]);
 		console.log("qr_scan event sent successfully");
 	} catch (err) {
 		console.error("Failed to send qr_scan event:", err);
