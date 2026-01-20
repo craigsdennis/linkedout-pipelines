@@ -1,5 +1,12 @@
 # LinkedOut - Cloudflare Data Stack Demo
 
+[<img src="https://img.youtube.com/vi/pkS1ccQBoqg/0.jpg">](https://youtu.be/pkS1ccQBoqg "Building a Scalable Click Tracker with Cloudflare Pipelines
+")
+
+📼 https://youtu.be/pkS1ccQBoqg
+
+
+
 **LinkedOut** is an educational demo application that showcases Cloudflare's modern data stack for building real-time analytics applications with authenticated multi-user collaboration.
 
 ## What This Demo Teaches

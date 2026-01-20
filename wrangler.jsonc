@@ -3,36 +3,37 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "linkedout-pipelines",
-	"main": "src/index.tsx",
-	"compatibility_date": "2025-12-02",
-	"assets": {
-		"binding": "ASSETS",
-		"directory": "./public",
-		"run_worker_first": true
-	},
-	"observability": {
-		"enabled": true
-	},
-	"kv_namespaces": [
-		{
-			"binding": "MAP_CACHE",
-			"id": "c44f5527672c42729aa08697c2c2307e",
-			"preview_id": "c44f5527672c42729aa08697c2c2307e"
-		}
-	],
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "linkedout-db",
-			"database_id": "677ae4a4-45c6-4279-9a7a-f4b5db2fc066"
-		}
-	],
-	"pipelines": [
-		{
-			"binding": "EVENT_STREAM",
-			"pipeline": "4fe2606a2aa74a6990662fcc5d508517"
-		}
-	],
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "linkedout-pipelines",
+  "main": "src/index.tsx",
+  "compatibility_date": "2025-01-19",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./public",
+    "run_worker_first": true,
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "kv_namespaces": [
+    {
+      "binding": "MAP_CACHE",
+      "id": "c44f5527672c42729aa08697c2c2307e",
+      "preview_id": "c44f5527672c42729aa08697c2c2307e",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "linkedout-db",
+      "database_id": "677ae4a4-45c6-4279-9a7a-f4b5db2fc066",
+    },
+  ],
+  "pipelines": [
+    {
+      "binding": "EVENT_STREAM",
+      "pipeline": "4fe2606a2aa74a6990662fcc5d508517",
+    },
+  ],
+  "routes": [{ "custom_domain": true, "pattern": "linkedout.dev" }],
 }
