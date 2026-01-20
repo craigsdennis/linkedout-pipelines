@@ -185,7 +185,7 @@ describe("Dashboard Routes - Integration Tests", () => {
       const text = await response.text();
       // The view page shows the slug and has manage/edit buttons
       expect(text).toContain("view-test");
-      expect(text).toContain("Edit") || expect(text).toContain("Manage");
+      expect(text.includes("Edit") || text.includes("Manage")).toBe(true);
     });
 
     it("should render edit outie form at /dashboard/outies/edit/:slug", async () => {
@@ -281,30 +281,6 @@ describe("Dashboard Routes - Integration Tests", () => {
       expect(outie).toBeNull();
     });
 
-    it("should render QR code page at /dashboard/outies/:slug/qr", async () => {
-      const jwt = createMockJWT({
-        email: "qr@example.com",
-        name: "QR User",
-        exp: Math.floor(Date.now() / 1000) + 3600
-      });
-
-      // Create user and outie
-      await db.batch([
-        db.prepare("INSERT INTO users (email, is_admin, created_at) VALUES (?, ?, ?)").bind("qr@example.com", 0, new Date().toISOString()),
-        db.prepare("INSERT INTO outies (slug, title, content, theme_id, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind("qr-test", "QR Test", "Content", "default", "qr@example.com", new Date().toISOString(), new Date().toISOString()),
-        db.prepare("INSERT INTO outie_maintainers (outie_slug, user_email, added_at) VALUES (?, ?, ?)").bind("qr-test", "qr@example.com", new Date().toISOString())
-      ]);
-
-      const response = await SELF.fetch("https://example.com/dashboard/outies/qr-test/qr", {
-        headers: { "Cf-Access-Jwt-Assertion": jwt }
-      });
-
-      expect(response.status).toBe(200);
-      const text = await response.text();
-      // Should contain SVG in HTML page
-      expect(text).toContain("<svg");
-      expect(text).toContain("QR Code");
-    });
   });
 
   describe("Maintainer Management Routes", () => {
@@ -400,7 +376,7 @@ describe("Dashboard Routes - Integration Tests", () => {
         const response = await SELF.fetch(`https://example.com${route}`, {
           headers: { "Cf-Access-Jwt-Assertion": jwt }
         });
-        expect(response.status).toBe(404, `Route ${route} should return 404`);
+        expect(response.status, `Route ${route} should return 404`).toBe(404);
       }
     });
   });

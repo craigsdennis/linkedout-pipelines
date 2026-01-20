@@ -88,7 +88,6 @@ dashboard.get("/", authMiddleware, async (c) => {
                     <div style="display: flex; gap: 10px; align-items: center;">
                       <a href="/out/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">View</a>
                       <a href="/dashboard/outies/view/${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px;">Manage</a>
-                      <a href="/qr/${link.slug}" target="_blank" class="btn" style="padding: 8px 12px; font-size: 14px;">QR Code</a>
                       <a href="/dashboard/analytics?slug=${link.slug}" class="btn" style="padding: 8px 12px; font-size: 14px; background: #f5f5f5; color: #333;" title="View analytics for this page">
                         📊 Analytics
                       </a>
@@ -588,7 +587,6 @@ dashboard.get("/outies/view/:slug", authMiddleware, async (c) => {
           </div>
           <div class="actions">
             <button class="btn" onclick="navigator.clipboard.writeText('${linkUrl}')">Copy Link</button>
-            <button class="btn" onclick="showQR()">View QR Code <span class="hotkey-hint">(Q)</span></button>
             <a href="/dashboard/analytics?slug=${slug}" class="btn">View Analytics</a>
           </div>
         </div>
@@ -948,72 +946,6 @@ dashboard.post("/outies/delete/:slug", authMiddleware, async (c) => {
 	await deleteOutie(slug);
 
 	return c.redirect("/dashboard");
-});
-
-// QR Code page
-dashboard.get("/outies/:slug/qr", authMiddleware, async (c) => {
-	const { slug } = c.req.param();
-	const email = c.get("userEmail");
-	const userName = c.get("userName");
-	const isAdmin = c.get("isAdmin");
-
-	const link = await getOutie(slug);
-	if (!link) {
-		return c.html("Outie not found", 404);
-	}
-
-	// Check if user has access
-	const hasAccess = await canUserAccessOutie(slug, email);
-	if (!hasAccess) {
-		return c.html("Access denied", 403);
-	}
-
-	const user = await getUser(email);
-	const linkUrl = `${new URL(c.req.url).origin}/out/${slug}`;
-	// Use trackable QR URL that will record QR scans separately
-	const qrTrackUrl = `${new URL(c.req.url).origin}/q/${slug}`;
-
-	// Generate QR code as SVG string
-	const qrSvg = await QRCode.toString(qrTrackUrl, {
-		type: "svg",
-		width: 400,
-		margin: 2,
-		color: {
-			dark: "#000000",
-			light: "#ffffff",
-		},
-	});
-
-	return c.html(
-		DashboardLayout({
-			title: `QR Code: ${slug}`,
-			email: email,
-			userName: userName,
-			isAdmin: isAdmin,
-			scripts: ["/qr.js"],
-			children: html`
-        <script>window.qrSlug = '${slug}';</script>
-        <h2>QR Code for: ${slug}</h2>
-
-        <div class="qr-container">
-          <div id="qr-code-display">
-            ${raw(qrSvg)}
-          </div>
-          <div class="link-url">${linkUrl}</div>
-        </div>
-
-        <div class="actions">
-          <button class="btn" onclick="downloadQRCode()">Download QR Code</button>
-          <button class="btn" onclick="window.print()">Print QR Code</button>
-          <a href="/dashboard/outies/view/${slug}" class="btn btn-secondary">Back to Link</a>
-        </div>
-
-        <p class="info-text">
-          QR code scans are tracked separately from regular clicks in your analytics.
-        </p>
-      `,
-		}),
-	);
 });
 
 // QR code scan redirect (tracks as qr_scan)
