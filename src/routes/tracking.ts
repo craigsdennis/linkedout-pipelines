@@ -2,7 +2,7 @@ import { waitUntil } from "cloudflare:workers";
 import { Hono } from "hono";
 import type { ClickEvent, TrackingPayload } from "../types";
 import { getOutie } from "../utils/db";
-import { getCfProperties } from "../utils/helpers";
+import { getCfProperties, getVisitorId } from "../utils/helpers";
 
 const tracking = new Hono<{ Bindings: Env }>();
 
@@ -29,7 +29,7 @@ tracking.post("/api/track", async (c) => {
 		out: payload.out,
 		link_text: payload.link_text || undefined,
 		slug: link.slug,
-		visitor_id: payload.visitor_id,
+		visitor_id: getVisitorId(c), // Read from cookie via context (set by visitorMiddleware)
 		user_agent: c.req.header("user-agent"),
 		referer: c.req.header("referer"),
 		event_type: "click",

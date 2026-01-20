@@ -1,5 +1,4 @@
 import type { Context } from "hono";
-import { getCookie } from "hono/cookie";
 import type { ClickEvent, Theme } from "../types";
 
 // Helper to extract Cloudflare request metadata
@@ -18,9 +17,14 @@ export function getCfProperties(request: Request): Partial<ClickEvent> {
   };
 }
 
-// Helper to get visitor ID from cookie
-export function getVisitorId(c: Context): string | undefined {
-  return getCookie(c, "_lo_vid");
+/**
+ * Get visitor ID from Hono context
+ * The visitor ID is set by the visitorMiddleware
+ * @param c - Hono context
+ * @returns Visitor ID string or "unknown" if not set
+ */
+export function getVisitorId(c: Context): string {
+  return c.get("visitorId") || "unknown";
 }
 
 /**

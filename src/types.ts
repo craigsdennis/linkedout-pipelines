@@ -1,9 +1,9 @@
 // API payload from client-side tracking script
+// Note: visitor_id is handled server-side via cookie (not sent in payload)
 export interface TrackingPayload {
   url: string;
   out: string | null;
   link_text?: string | null;
-  visitor_id?: string;
 }
 
 // Click tracking event that goes into the pipeline (v6 - no owner_email)

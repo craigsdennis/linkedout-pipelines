@@ -5,6 +5,7 @@ import { html, raw } from "hono/html";
 import { jsxRenderer } from "hono/jsx-renderer";
 import { marked } from "marked";
 import QRCode from "qrcode";
+import { visitorMiddleware } from "./middleware/visitor";
 import auth from "./routes/auth";
 import dashboard from "./routes/dashboard";
 import tracking from "./routes/tracking";
@@ -21,9 +22,13 @@ import { LeafletMap } from "./views/leaflet-map";
 
 type Variables = {
 	userEmail: string;
+	visitorId: string;
 };
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Apply visitor ID middleware to all routes
+app.use("*", visitorMiddleware);
 
 // Mount route modules
 app.route("/", tracking);
