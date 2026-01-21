@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { queryR2SQL } from "./r2-sql";
 
 /**
@@ -24,33 +24,40 @@ export interface MapData {
 }
 
 const MAP_CACHE_KEY = "map_data_global";
-const CACHE_TTL_SECONDS = 900; // 15 minutes
+const STALE_THRESHOLD_SECONDS = 300; // 5 minutes - trigger background refresh after this
 
 /**
  * Get location statistics for map visualization
- * Uses KV cache with 15-minute TTL
+ * Uses stale-while-revalidate pattern:
+ * - Always returns cached data immediately if available
+ * - If cache is stale (older than threshold), kicks off background refresh via waitUntil
+ * - First request after threshold triggers the refresh, subsequent requests get fresh data
  */
 export async function getMapData(): Promise<MapData> {
   // Try to get from cache first
   const cached = await env.MAP_CACHE.get<MapData>(MAP_CACHE_KEY, "json");
+  
   if (cached && cached.lastUpdated) {
     const cacheAge = Date.now() - new Date(cached.lastUpdated).getTime();
-    if (cacheAge < CACHE_TTL_SECONDS * 1000) {
-      console.log("Returning cached map data, age:", Math.round(cacheAge / 1000), "seconds");
-      return cached;
+    const isStale = cacheAge >= STALE_THRESHOLD_SECONDS * 1000;
+    
+    if (isStale) {
+      // Cache is stale - return cached data immediately but kick off background refresh
+      console.log("Returning stale map data, age:", Math.round(cacheAge / 1000), "seconds. Triggering background refresh.");
+      waitUntil(refreshMapDataCache());
+    } else {
+      console.log("Returning fresh cached map data, age:", Math.round(cacheAge / 1000), "seconds");
     }
+    
+    return cached;
   }
 
-  // Cache miss or expired - query R2 SQL
-  console.log("Cache miss or expired, querying R2 SQL for map data");
+  // No cached data at all - must query synchronously
+  console.log("No cached map data found, querying R2 SQL");
   const mapData = await queryLocationStats();
 
-  // Store in cache with metadata
-  await env.MAP_CACHE.put(
-    MAP_CACHE_KEY,
-    JSON.stringify(mapData),
-    { expirationTtl: CACHE_TTL_SECONDS }
-  );
+  // Store in cache (no TTL expiration - we manage staleness ourselves)
+  await env.MAP_CACHE.put(MAP_CACHE_KEY, JSON.stringify(mapData));
 
   return mapData;
 }
@@ -124,17 +131,14 @@ async function queryLocationStats(): Promise<MapData> {
 
 /**
  * Manually refresh the map data cache
- * Useful for admin actions or scheduled updates
+ * Useful for admin actions, scheduled updates, or background refresh via waitUntil
  */
 export async function refreshMapDataCache(): Promise<MapData> {
-  console.log("Manually refreshing map data cache");
+  console.log("Refreshing map data cache");
   const mapData = await queryLocationStats();
   
-  await env.MAP_CACHE.put(
-    MAP_CACHE_KEY,
-    JSON.stringify(mapData),
-    { expirationTtl: CACHE_TTL_SECONDS }
-  );
+  // Store in cache (no TTL expiration - we manage staleness ourselves)
+  await env.MAP_CACHE.put(MAP_CACHE_KEY, JSON.stringify(mapData));
 
   return mapData;
 }
