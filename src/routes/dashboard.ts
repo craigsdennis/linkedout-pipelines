@@ -17,7 +17,6 @@ import {
 	getOutieWithMaintainers,
 	getPublicThemes,
 	getTheme,
-	getUserAccessibleSlugs,
 	getUserOuties,
 	removeMaintainer,
 	updateOutie,
@@ -27,8 +26,9 @@ import {
 	getCfProperties,
 	getVisitorId,
 } from "../utils/helpers";
+import { getAnalyticsData } from "../utils/analytics-cache";
 import { getMapData, refreshMapDataCache } from "../utils/map-data";
-import { queryR2SQL } from "../utils/r2-sql";
+
 import { BaseLayout, DashboardLayout } from "../views/layouts";
 import { LeafletMap } from "../views/leaflet-map";
 
@@ -991,212 +991,36 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
 	const isAdmin = c.get("isAdmin");
 	const slugFilter = c.req.query("slug");
 
-	// Query R2 SQL for analytics data
-	const stats = {
-		totalViews: 0,
-		totalClicks: 0,
-		totalQrScans: 0,
-		clickThroughRate: "0%",
-	};
-	let recentEvents: any[] = [];
-	let destinationBreakdown: Array<{ out: string; click_count: number }> = [];
-	let linkTextBreakdown: Array<{
-		link_text: string;
-		out: string;
-		click_count: number;
-	}> = [];
-	let slugBreakdown: Array<{
-		slug: string;
-		title: string | null;
-		click_count: number;
-	}> = [];
-	let hasData = false;
-	let errorMessage: string | null = null;
-
-	try {
-		// Build WHERE clause based on slug filter or user's accessible slugs
-		let whereClause: string;
-
-		if (slugFilter) {
-			// Single slug filter - check if user has access
-			const hasAccess = await canUserAccessOutie(slugFilter, email);
-			if (!hasAccess) {
-				throw new Error("Access denied to this outie");
-			}
-			whereClause = `WHERE slug = '${slugFilter}'`;
-		} else {
-			// All user's slugs - get from D1
-			const userSlugs = await getUserAccessibleSlugs(email);
-			console.log("User accessible slugs:", userSlugs);
-
-			if (userSlugs.length === 0) {
-				// No links yet - return empty results
-				whereClause = "WHERE slug = 'nonexistent'"; // Will return no results
-			} else {
-				// Build slug OR clause (R2 SQL doesn't support IN clause)
-				const slugConditions = userSlugs
-					.map((s) => `slug = '${s}'`)
-					.join(" OR ");
-				whereClause = `WHERE (${slugConditions})`;
-			}
+	// Access control check (always fresh, never cached)
+	if (slugFilter) {
+		const hasAccess = await canUserAccessOutie(slugFilter, email);
+		if (!hasAccess) {
+			return c.html("Access denied to this outie", 403);
 		}
-
-		console.log("Analytics WHERE clause:", whereClause);
-
-		// Define all queries
-		const statsQuery = `
-      SELECT 
-        event_type,
-        COUNT(*)
-      FROM default.events
-      ${whereClause}
-      GROUP BY event_type
-    `;
-
-		const eventsQuery = `
-      SELECT 
-        timestamp,
-        event_type,
-        slug,
-        out,
-        link_text,
-        city,
-        region,
-        country
-      FROM default.events
-      ${whereClause}
-      ORDER BY __ingest_ts DESC
-      LIMIT 20
-    `;
-
-		const destinationQuery = `
-      SELECT 
-        out,
-        COUNT(*)
-      FROM default.events
-      ${whereClause}
-        AND event_type = 'click'
-        AND out IS NOT NULL
-      GROUP BY out
-      ORDER BY COUNT(*) DESC
-    `;
-
-		const linkTextQuery = `
-      SELECT 
-        link_text,
-        out,
-        COUNT(*)
-      FROM default.events
-      ${whereClause}
-        AND event_type = 'click'
-        AND link_text IS NOT NULL
-        AND out IS NOT NULL
-      GROUP BY link_text, out
-      ORDER BY COUNT(*) DESC
-    `;
-
-		const slugQuery = !slugFilter
-			? `
-      SELECT 
-        slug,
-        COUNT(*)
-      FROM default.events
-      ${whereClause}
-        AND event_type = 'click'
-      GROUP BY slug
-      ORDER BY COUNT(*) DESC
-    `
-			: null;
-
-		// Execute all queries in parallel
-		const [statsData, eventsData, destinationData, linkTextData, slugData] =
-			await Promise.all([
-				queryR2SQL(statsQuery),
-				queryR2SQL(eventsQuery),
-				queryR2SQL(destinationQuery),
-				queryR2SQL(linkTextQuery),
-				slugQuery
-					? queryR2SQL(slugQuery)
-					: Promise.resolve({ result: { rows: [] } }),
-			]);
-
-		console.log("All queries completed in parallel");
-
-		// Process stats data
-		const rows = statsData.result?.rows;
-		if (rows && rows.length > 0) {
-			hasData = true;
-			rows.forEach((row: any) => {
-				const count = row["count(*)"] || 0;
-				if (row.event_type === "page_view") stats.totalViews = count;
-				if (row.event_type === "click") stats.totalClicks = count;
-				if (row.event_type === "qr_scan") stats.totalQrScans = count;
-			});
-
-			// Calculate CTR
-			if (stats.totalViews > 0) {
-				const ctr = ((stats.totalClicks / stats.totalViews) * 100).toFixed(1);
-				stats.clickThroughRate = `${ctr}%`;
-			}
-		}
-
-		// Process events data
-		const eventRows = eventsData.result?.rows;
-		if (eventRows && eventRows.length > 0) {
-			recentEvents = eventRows;
-		}
-
-		// Process destination data
-		const destRows = destinationData.result?.rows;
-		if (destRows && destRows.length > 0) {
-			destinationBreakdown = destRows
-				.map((row: any) => ({
-					out: row.out,
-					click_count: row["count(*)"] || row.click_count || 0,
-				}))
-				.sort((a, b) => b.click_count - a.click_count)
-				.slice(0, 20);
-		}
-
-		// Process link text data
-		const linkRows = linkTextData.result?.rows;
-		if (linkRows && linkRows.length > 0) {
-			linkTextBreakdown = linkRows
-				.map((row: any) => ({
-					link_text: row.link_text,
-					out: row.out,
-					click_count: row["count(*)"] || row.click_count || 0,
-				}))
-				.sort((a, b) => b.click_count - a.click_count)
-				.slice(0, 20);
-		}
-
-		// Process slug data (only when not filtering by slug)
-		const slugRows = slugData.result?.rows;
-		if (slugRows && slugRows.length > 0) {
-			// Fetch outie titles from D1 for each slug (in parallel)
-			const slugsWithTitles = await Promise.all(
-				slugRows.map(async (row: any) => {
-					const link = await getOutie(row.slug);
-					return {
-						slug: row.slug,
-						title: link?.title || null,
-						click_count: row["count(*)"] || 0,
-					};
-				}),
-			);
-
-			slugBreakdown = slugsWithTitles
-				.sort((a, b) => b.click_count - a.click_count)
-				.slice(0, 20);
-		}
-	} catch (error) {
-		console.error("Error querying R2 SQL - exception thrown:", error);
-		errorMessage =
-			error instanceof Error
-				? error.message
-				: "Unknown error querying analytics";
 	}
+
+	// Get analytics data with stale-while-revalidate caching
+	const { data: analyticsData, fromCache, errorMessage } =
+		await getAnalyticsData(email, slugFilter);
+
+	const {
+		stats,
+		recentEvents,
+		destinationBreakdown,
+		linkTextBreakdown,
+		slugBreakdown,
+		hasData,
+		lastUpdated,
+	} = analyticsData;
+
+	// Format cache age for display
+	const cacheAgeSeconds = Math.round(
+		(Date.now() - new Date(lastUpdated).getTime()) / 1000,
+	);
+	const cacheAgeDisplay =
+		cacheAgeSeconds < 60
+			? `${cacheAgeSeconds}s ago`
+			: `${Math.round(cacheAgeSeconds / 60)}m ago`;
 
 	const user = await getUser(email);
 
@@ -1289,6 +1113,16 @@ dashboard.get("/analytics", authMiddleware, async (c) => {
             <p>Showing aggregate data across all your outies.</p>
           </div>
         `
+				}
+
+        ${
+					hasData
+						? html`
+          <div style="text-align: right; font-size: 12px; color: #999; margin: 8px 0 -12px 0;">
+            Data from ${cacheAgeDisplay}${fromCache ? " (cached)" : ""}
+          </div>
+        `
+						: html``
 				}
 
         <div class="stat-grid">
